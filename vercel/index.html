@@ -15,7 +15,7 @@
 <script>
 (function(){try{var q=new URLSearchParams(location.search);if(q.has('soyyo'))localStorage.setItem('va-soy-yo','1');if(q.has('noyo'))localStorage.removeItem('va-soy-yo');}catch(e){}})();
 window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments)};
-window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){var u=new URL(ev.url);u.searchParams.delete('soyyo');u.searchParams.set('utm_source','yo');ev.url=u.toString();}}catch(e){}return ev;});
+window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){var u=new URL(ev.url);u.searchParams.delete('soyyo');if(u.pathname.indexOf('/_yo')!==0)u.pathname='/_yo'+u.pathname;ev.url=u.toString();}}catch(e){}return ev;});
 </script>
 <script defer src="/_vercel/insights/script.js"></script>
 </head>
