@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kit de prospection assistée</title>
+<meta name="description" content="Trouver des entreprises proches, écrire, relancer, suivre : stage, alternance ou emploi.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23152238'/%3E%3Ccircle cx='16' cy='16' r='8' fill='none' stroke='%23ff6b3d' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='2.5' fill='%23ff6b3d'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <a class="brand" href="#" aria-label="Kit de prospection assistée">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="currentColor"/><circle cx="16" cy="16" r="8" fill="none" stroke="#ff6b3d" stroke-width="3"/><circle cx="16" cy="16" r="2.5" fill="#ff6b3d"/></svg>
+      <span>Kit de prospection</span>
+    </a>
+    <div class="seg" role="tablist" aria-label="Espace">
+      <button role="tab" id="tab-jeune" aria-selected="true" data-espace="jeune">Espace jeune</button>
+      <button role="tab" id="tab-conseiller" aria-selected="false" data-espace="conseiller">Espace conseiller</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <p class="ribbon"><strong>Démo.</strong> Les entreprises sont réelles (registre public). L'outil n'envoie aucun message à votre place ; vos données restent dans cet onglet et s'effacent à sa fermeture.</p>
+
+  <!-- ===================== ESPACE JEUNE ===================== -->
+  <section id="espace-jeune">
+    <div class="hero">
+      <h1>Trouve des entreprises près de toi, écris, relance.</h1>
+      <p>Stage, alternance ou emploi : en quelques minutes, une liste d'entreprises réelles autour du site et un message prêt à envoyer.</p>
+    </div>
+
+    <nav class="subtabs" aria-label="Étapes">
+      <button class="on" data-sub="chercher">1. Chercher</button>
+      <button data-sub="suivi">2. Mon suivi <span class="pill" id="nb-envois">0</span></button>
+    </nav>
+
+    <div id="sub-chercher" class="grid">
+      <form id="profil" class="card profil" autocomplete="off">
+        <h2>Mon profil</h2>
+        <label>Prénom et nom
+          <input id="nom" value="Léa Martin" required>
+        </label>
+        <fieldset class="row2">
+          <legend>Accords du message</legend>
+          <label class="radio"><input type="radio" name="genre" value="F" checked> Féminin</label>
+          <label class="radio"><input type="radio" name="genre" value="M"> Masculin</label>
+        </fieldset>
+        <label>Je cherche
+          <select id="typ">
+            <option value="stage">un stage</option>
+            <option value="alternance" selected>une alternance</option>
+            <option value="emploi">un emploi</option>
+          </select>
+        </label>
+        <label>Site E2C
+          <select id="site"></select>
+        </label>
+        <label>Métier recherché
+          <select id="metier"></select>
+        </label>
+        <label>Distance maximale : <output id="rayon-out">3 km</output>
+          <input type="range" id="rayon" min="1" max="10" value="3">
+        </label>
+        <label class="check"><input type="checkbox" id="sal" checked> Seulement les entreprises qui ont des salariés</label>
+        <button class="btn primary big" type="submit">Chercher les entreprises</button>
+      </form>
+
+      <div class="results">
+        <div id="empty" class="card empty">
+          <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="28" cy="28" r="16" fill="none" stroke="currentColor" stroke-width="4"/><path d="M40 40l12 12" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>
+          <p>Remplis ton profil puis lance la recherche.<br>Les entreprises apparaîtront ici, sur une carte.</p>
+        </div>
+        <div id="loading" class="card empty" hidden><div class="spin" aria-hidden="true"></div><p>Recherche dans le registre des entreprises…</p></div>
+        <div id="error" class="card alert" hidden></div>
+        <div id="res" hidden>
+          <div class="res-head">
+            <h2 id="res-title"></h2>
+            <p class="muted">Source : registre public des entreprises (INSEE, data.gouv.fr). Vérifie toujours les coordonnées avant d'écrire.</p>
+          </div>
+          <div id="map" class="map" role="img" aria-label="Carte des entreprises trouvées"></div>
+          <ol id="liste" class="liste"></ol>
+        </div>
+      </div>
+    </div>
+
+    <div id="sub-suivi" hidden>
+      <div class="card">
+        <div class="suivi-head">
+          <h2>Mon suivi</h2>
+          <div class="sim">
+            <span id="date-sim" class="tag warn" hidden></span>
+            <button class="btn ghost" id="btn-sim" type="button">Simuler : 8 jours plus tard</button>
+            <button class="btn ghost" id="btn-today" type="button" hidden>Revenir à aujourd'hui</button>
+          </div>
+        </div>
+        <div class="kpis kpis3">
+          <div class="kpi"><b id="k-env">0</b><span>candidatures envoyées</span></div>
+          <div class="kpi"><b id="k-rep">0</b><span>réponses</span></div>
+          <div class="kpi accent"><b id="k-rel">0</b><span>à relancer</span></div>
+        </div>
+        <div id="suivi-vide" class="empty small"><p>Aucun envoi pour le moment. Écris à une entreprise dans « 1. Chercher ».</p></div>
+        <div class="table-wrap"><table id="suivi-table" hidden>
+          <thead><tr><th>Entreprise</th><th>Envoyé le</th><th>Relance le</th><th>Statut</th></tr></thead>
+          <tbody></tbody>
+        </table></div>
+        <p class="muted">Relance conseillée 7 jours après l'envoi. Change le statut quand une entreprise répond.</p>
+      </div>
+      <div id="relances" class="card" hidden>
+        <h2>Messages de relance</h2>
+        <div id="relances-liste"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== ESPACE CONSEILLER ===================== -->
+  <section id="espace-conseiller" hidden>
+    <div class="hero">
+      <h1>Le groupe en un coup d'œil.</h1>
+      <p>Qui avance, qui relance, qui n'a encore rien envoyé.</p>
+    </div>
+    <div class="card">
+      <div class="kpis">
+        <div class="kpi"><b id="c-jeunes">0</b><span>jeunes</span></div>
+        <div class="kpi"><b id="c-env">0</b><span>candidatures envoyées</span></div>
+        <div class="kpi"><b id="c-rep">0</b><span>réponses</span></div>
+        <div class="kpi accent"><b id="c-rel">0</b><span>à relancer</span></div>
+      </div>
+      <div id="c-alerte" class="alert soft" hidden></div>
+      <div class="table-wrap"><table id="c-table">
+        <thead><tr><th>Jeune</th><th>Métier</th><th class="num">Envoyées</th><th class="num">Réponses</th><th class="num">À relancer</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <p class="muted">La première ligne reprend ce que tu as fait dans l'espace jeune. Les autres jeunes sont des exemples fictifs.</p>
+    </div>
+  </section>
+</main>
+
+<footer class="foot"><div class="wrap">Kit de prospection assistée · démo · données entreprises : API Recherche d'entreprises (data.gouv.fr)</div></footer>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
