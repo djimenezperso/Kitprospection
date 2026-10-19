@@ -266,27 +266,58 @@ def page_preparer():
                 f"[Carte](https://www.google.com/maps/search/?api=1&query={q}) · "
                 f"[Trouver le site / contact](https://www.google.com/search?q={q}) · "
                 f"[Fiche officielle](https://annuaire-entreprises.data.gouv.fr/etablissement/{e['siret']})")
+            # Le message s'ouvre directement sous l'entreprise choisie (pas tout en bas de la page)
+            if ss.choix == i and e["siret"] not in deja:
+                panneau_message(e, nom, genre, typ, metier)
 
-    if ss.choix is not None and ss.choix < len(res):
-        e = res[ss.choix]
-        st.divider()
-        st.subheader(f"Message pour {e['nom']}")
-        domaine = METIERS[metier][1]
-        texte = st.text_area("Modifiable avant l'envoi", height=300, key=f"msg_{e['siret']}",
-                             value=message_candidature(nom, genre, typ, domaine, e["nom"], e["ville"]))
-        sujet = f"Candidature {article_contrat(typ)} – {nom}"
-        c1, c2 = st.columns(2)
-        c1.link_button("Ouvrir dans ma messagerie", mailto(sujet, texte), use_container_width=True)
-        if c2.button("Marquer comme envoyé", type="primary", use_container_width=True):
-            ss.envois.append({"siret": e["siret"], "entreprise": e["nom"], "ville": e["ville"],
-                              "envoye_le": aujourd_hui(), "statut": "Envoyé"})
-            ss.choix = None
-            st.toast("Ajouté à « Mon suivi ».")
-            st.rerun()
-        with st.expander("Copier le texte"):
-            st.code(texte, language=None, wrap_lines=True)
-        st.caption("Joignez votre CV. L'adresse e-mail de l'entreprise se trouve sur son site, "
-                   "ou appelez pour la demander.")
+
+def bouton_copier(texte: str, cle: str):
+    """Vrai bouton « Copier » (presse-papiers), avec repli si le navigateur bloque."""
+    import json
+    import streamlit.components.v1 as components
+    components.html(f"""
+<div style="font-family:sans-serif">
+<textarea id="t" style="position:absolute;left:-9999px">{texte.replace('<', '&lt;')}</textarea>
+<button id="b" style="width:100%;min-height:44px;border:0;border-radius:8px;background:#1f5fbf;
+color:#fff;font-size:16px;font-weight:600;cursor:pointer">1. Copier le message</button>
+<div id="m" style="font-size:13px;color:#1d7a4a;margin-top:4px;min-height:16px"></div>
+</div>
+<script>
+const txt = {json.dumps(texte).replace('</', '<\\/')};
+const b = document.getElementById('b'), m = document.getElementById('m');
+b.onclick = async () => {{
+  try {{ await navigator.clipboard.writeText(txt); }}
+  catch (e) {{ const t = document.getElementById('t'); t.value = txt; t.select(); document.execCommand('copy'); }}
+  m.textContent = 'Message copié ! Collez-le dans votre messagerie (Ctrl + V).';
+}};
+</script>""", height=78)
+
+
+def panneau_message(e: dict, nom: str, genre: str, typ: str, metier: str):
+    ss = st.session_state
+    domaine = METIERS[metier][1]
+    st.markdown(f"#### Message pour {e['nom']}")
+    texte = st.text_area("Modifiable avant l'envoi", height=280, key=f"msg_{e['siret']}",
+                         value=message_candidature(nom, genre, typ, domaine, e["nom"], e["ville"]))
+    sujet = f"Candidature {article_contrat(typ)} – {nom}"
+    bouton_copier(texte, e["siret"])
+    st.markdown("**2. Ouvrir ma messagerie**, coller le message, ajouter l'adresse de l'entreprise et mon CV :")
+    s, c = urllib.parse.quote(sujet), urllib.parse.quote(texte)
+    m1, m2, m3 = st.columns(3)
+    m1.link_button("Gmail", f"https://mail.google.com/mail/?view=cm&fs=1&su={s}&body={c}",
+                   use_container_width=True)
+    m2.link_button("Outlook", f"https://outlook.live.com/mail/0/deeplink/compose?subject={s}&body={c}",
+                   use_container_width=True)
+    m3.link_button("Autre messagerie", mailto(sujet, texte), use_container_width=True)
+    st.caption("L'adresse e-mail de l'entreprise se trouve sur son site (lien « Trouver le site / contact »), "
+               "ou appelez pour la demander.")
+    if st.button("3. J'ai envoyé ma candidature", type="primary", use_container_width=True,
+                 key=f"env_{e['siret']}"):
+        ss.envois.append({"siret": e["siret"], "entreprise": e["nom"], "ville": e["ville"],
+                          "envoye_le": aujourd_hui(), "statut": "Envoyé"})
+        ss.choix = None
+        st.toast("Ajouté à « Mon suivi ».")
+        st.rerun()
 
 
 def page_suivi():
