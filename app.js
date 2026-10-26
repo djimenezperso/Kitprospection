@@ -112,6 +112,47 @@ ${p.nom}`;
       autre: `mailto:?subject=${s}&body=${c}`,
     };
   };
+  // ---------- rappels agenda (rien n'est stocké : l'événement va dans l'agenda du jeune) ----------
+  const APP_URL = "https://kit-prospection.vercel.app";
+  const pad = (n) => String(n).padStart(2, "0");
+  const stamp = (d) => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+  const stampUTC = (d) => `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}00Z`;
+  function evDates(day, h, m, dur) {
+    const a = new Date(day); a.setHours(h, m, 0, 0);
+    const b = new Date(a.getTime() + dur * 60000);
+    return [a, b];
+  }
+  function gcal(ev) {
+    const [a, b] = evDates(ev.day, ev.h, ev.m, ev.dur);
+    let u = "https://calendar.google.com/calendar/render?action=TEMPLATE"
+      + "&text=" + encodeURIComponent(ev.title) + "&dates=" + stamp(a) + "/" + stamp(b)
+      + "&ctz=Europe/Paris&details=" + encodeURIComponent(ev.details);
+    if (ev.rrule) u += "&recur=" + encodeURIComponent("RRULE:" + ev.rrule);
+    return u;
+  }
+  function ics(ev) {
+    const [a, b] = evDates(ev.day, ev.h, ev.m, ev.dur);
+    const escTxt = (t) => t.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
+    const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Kit de prospection//FR", "CALSCALE:GREGORIAN", "BEGIN:VEVENT",
+      "UID:" + Date.now() + Math.random().toString(36).slice(2) + "@kit-prospection", "DTSTAMP:" + stampUTC(new Date()),
+      "DTSTART:" + stampUTC(a), "DTEND:" + stampUTC(b),
+      "SUMMARY:" + escTxt(ev.title), "DESCRIPTION:" + escTxt(ev.details), "URL:" + APP_URL];
+    if (ev.rrule) lines.push("RRULE:" + ev.rrule);
+    lines.push("BEGIN:VALARM", "ACTION:DISPLAY", "DESCRIPTION:" + escTxt(ev.title), "TRIGGER:-PT0M", "END:VALARM", "END:VEVENT", "END:VCALENDAR");
+    return "data:text/calendar;charset=utf-8," + encodeURIComponent(lines.join("\r\n"));
+  }
+  const prochainJourOuvre = (d) => { const x = new Date(d); x.setDate(x.getDate() + 1); while (x.getDay() === 0 || x.getDay() === 6) x.setDate(x.getDate() + 1); return x; };
+  function evRelance(e) {
+    let jour = addDays(fromIso(e.envoye), RELANCE);
+    while (jour.getDay() === 0 || jour.getDay() === 6) jour.setDate(jour.getDate() + 1);
+    return { title: "Relancer " + e.entreprise, day: jour, h: 10, m: 0, dur: 15,
+      details: "Pas de réponse de " + e.entreprise + " ? C'est le moment de relancer.\nOuvre le Kit de prospection, onglet « Mon suivi » : le message de relance est prêt à copier.\n" + APP_URL };
+  }
+  const evQuotidien = () => ({ title: "Mes candidatures (15 min)", day: prochainJourOuvre(jour(0)), h: 9, m: 0, dur: 15,
+    rrule: "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;COUNT=15",
+    details: "15 minutes pour ma recherche : 2 candidatures et les relances du jour.\n" + APP_URL });
+  const liensAgenda = (ev, nom) => `<a href="${gcal(ev)}" target="_blank" rel="noopener">Google Agenda</a> · <a href="${ics(ev)}" download="${nom}.ics">Autre agenda</a>`;
+
   const statutAffiche = (e) => (e.statut === "Envoyé" && today() >= addDays(fromIso(e.envoye), RELANCE)) ? "À relancer" : e.statut;
 
   // ---------- navigation ----------
@@ -267,6 +308,9 @@ ${p.nom}`;
     $(`[data-envoye="${e.siret}"]`).addEventListener("click", () => {
       S.envois.push({ siret: e.siret, entreprise: e.nom, ville: e.ville, envoye: iso(today()), statut: "Envoyé", typ: p.typ });
       S.ouvert = null; save(); majBadge(); renderListe(); renderMap();
+      const ev = evRelance(S.envois[S.envois.length - 1]);
+      const li = $("#e-" + e.siret);
+      if (li) li.insertAdjacentHTML("beforeend", `<div class="rappel-ok" style="margin-top:12px;background:var(--ok-soft);border-radius:12px;padding:10px 14px;font-size:.92rem"><b>Envoyé !</b> Ajoute le rappel de relance dans ton agenda (le ${fr(ev.day)}) : ${liensAgenda(ev, "relance-" + e.siret)}</div>`);
       toast("Ajouté à « Mon suivi ».");
     });
   }
@@ -292,6 +336,15 @@ ${p.nom}`;
     $("#suivi-table").hidden = env.length === 0;
     $("#date-sim").hidden = !S.decalage; $("#btn-today").hidden = !S.decalage;
     $("#date-sim").textContent = "Date simulée : " + today().toLocaleDateString("fr-FR");
+    const th = $("#suivi-table thead tr");
+    if (th && th.children.length === 4) th.insertAdjacentHTML("beforeend", "<th>Rappel</th>");
+    let carte = $("#rappel-quotidien");
+    if (!carte) {
+      $("#suivi-vide").insertAdjacentHTML("beforebegin", `<div id="rappel-quotidien" style="display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--blue-soft);border-radius:12px;padding:12px 14px;margin:0 0 14px"><div><b>Un rappel chaque matin sur ton téléphone</b><br><span style="font-size:.88rem;color:var(--ink-2)">15 minutes à 9 h, du lundi au vendredi, pendant 3 semaines.</span></div><div class="rq-liens" style="display:flex;gap:8px;flex-wrap:wrap"></div></div>`);
+      carte = $("#rappel-quotidien");
+    }
+    const q = evQuotidien();
+    carte.querySelector(".rq-liens").innerHTML = `<a class="btn ghost" href="${gcal(q)}" target="_blank" rel="noopener">Google Agenda</a><a class="btn ghost" href="${ics(q)}" download="rappel-candidatures.ics">Autre agenda</a>`;
     $("#suivi-table tbody").innerHTML = env.map((e, i) => {
       const st = statutAffiche(e);
       return `<tr>
@@ -299,6 +352,7 @@ ${p.nom}`;
         <td>${fr(fromIso(e.envoye))}</td>
         <td>${fr(addDays(fromIso(e.envoye), RELANCE))}</td>
         <td><label class="sr"><select data-statut="${i}" aria-label="Statut pour ${esc(e.entreprise)}">${STATUTS.map((s) => `<option${s === e.statut ? " selected" : ""}>${s}</option>`).join("")}</select></label></td>
+        <td style="font-size:.86rem;white-space:nowrap">${e.statut === "Envoyé" ? liensAgenda(evRelance(e), "relance-" + e.siret) : "—"}</td>
       </tr>`;
     }).join("");
     $$("[data-statut]").forEach((s) => s.addEventListener("change", () => { S.envois[+s.dataset.statut].statut = s.value; save(); renderSuivi(); }));
