@@ -1,0 +1,818 @@
+/* Kit de prospection assistée — pilote E2C 92 */
+(function () {
+  "use strict";
+
+  const APP_URL = location.origin + "/pilote/";
+  const SITES = { clichy: "Clichy", bagneux: "Bagneux", nanterre: "Nanterre" };
+  const METIERS = [
+    ["vente", "Vente / employé(e) de commerce", "la vente et le commerce"],
+    ["boulangerie", "Boulangerie / pâtisserie", "la boulangerie-pâtisserie"],
+    ["restauration", "Cuisine / restauration", "la cuisine et la restauration"],
+    ["mecanique", "Mécanique automobile", "la mécanique automobile"],
+    ["aide", "Aide à la personne", "l'aide à la personne"],
+    ["enfance", "Petite enfance", "la petite enfance"],
+    ["proprete", "Propreté / entretien", "la propreté et l'entretien"],
+    ["coiffure", "Coiffure / esthétique", "la coiffure et l'esthétique"],
+    ["logistique", "Logistique / magasinage", "la logistique"],
+    ["batiment", "Bâtiment (électricité, plomberie, peinture)", "le bâtiment"],
+    ["hotellerie", "Hôtellerie / accueil", "l'hôtellerie et l'accueil"],
+  ];
+  const STATUTS = ["Envoyé", "Relancé", "Réponse positive", "Entretien obtenu", "Refus", "Pris(e)"];
+  const REPONSES = ["Réponse positive", "Entretien obtenu", "Refus", "Pris(e)"];
+
+  const $ = (s, r) => (r || document).querySelector(s);
+  const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const metierLabel = (id) => (METIERS.find((m) => m[0] === id) || [, ""])[1];
+  const domaine = (id) => (METIERS.find((m) => m[0] === id) || [, , "ce métier"])[2];
+  const article = (t) => ({ stage: "un stage", alternance: "une alternance", emploi: "un emploi" }[t] || "un stage");
+
+  // ---------- session ----------
+  const mem = {};
+  const ls = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return mem[k] || null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) { mem[k] = v; } },
+    del(k) { try { localStorage.removeItem(k); } catch (e) { delete mem[k]; } },
+  };
+  const TK = "kp_pilote_token", KIND = "kp_pilote_kind";
+
+  async function api(a, data, opts) {
+    opts = opts || {};
+    const t = ls.get(TK);
+    const headers = {};
+    if (t) headers.Authorization = "Bearer " + t;
+    let url = "/api/pilote?a=" + encodeURIComponent(a);
+    const init = { headers };
+    if (opts.get) {
+      if (data) url += "&" + new URLSearchParams(data);
+    } else {
+      init.method = "POST"; headers["Content-Type"] = "application/json"; init.body = JSON.stringify(data || {});
+    }
+    const r = await fetch(url, init);
+    if (opts.raw) {
+      if (!r.ok) { let m = "Erreur"; try { m = (await r.json()).error; } catch (e) { /* */ } throw new Error(m); }
+      return r;
+    }
+    let out = {};
+    try { out = await r.json(); } catch (e) { /* */ }
+    if (r.status === 401 && t && !/^login/.test(a)) { logout(out.error || "Session expirée."); throw new Error(out.error || "Session expirée."); }
+    if (!r.ok) throw new Error(out.error || "Le serveur ne répond pas. Réessaie dans un instant.");
+    return out;
+  }
+
+  async function telecharger(a, params, nomDefaut) {
+    const r = await api(a, params, { get: true, raw: true });
+    const blob = await r.blob();
+    const cd = r.headers.get("Content-Disposition") || "";
+    const m = cd.match(/filename\*=UTF-8''([^;]+)/) || cd.match(/filename="([^"]+)"/);
+    const nom = m ? decodeURIComponent(m[1]) : nomDefaut;
+    const u = URL.createObjectURL(blob);
+    const el = document.createElement("a"); el.href = u; el.download = nom; document.body.appendChild(el); el.click(); el.remove();
+    setTimeout(() => URL.revokeObjectURL(u), 4000);
+  }
+
+  // ---------- helpers ----------
+  function toast(t) {
+    const el = $("#toast"); el.textContent = t; el.classList.add("on");
+    clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove("on"), 2800);
+  }
+  async function copier(texte) {
+    try { await navigator.clipboard.writeText(texte); return true; }
+    catch (e) {
+      const t = document.createElement("textarea"); t.value = texte; t.style.position = "fixed"; t.style.left = "-9999px";
+      document.body.appendChild(t); t.select();
+      let ok = false; try { ok = document.execCommand("copy"); } catch (x) { ok = false; }
+      t.remove(); return ok;
+    }
+  }
+  const mailLinks = (sujet, corps) => {
+    const s = encodeURIComponent(sujet), c = encodeURIComponent(corps);
+    return {
+      gmail: `https://mail.google.com/mail/?view=cm&fs=1&su=${s}&body=${c}`,
+      outlook: `https://outlook.live.com/mail/0/deeplink/compose?subject=${s}&body=${c}`,
+      autre: `mailto:?subject=${s}&body=${c}`,
+    };
+  };
+  const todayIso = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris" }).format(new Date());
+  const fromIso = (s) => new Date(s + "T12:00:00");
+  const fr = (iso) => iso ? fromIso(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" }) : "—";
+  const quand = (isoDT) => {
+    if (!isoDT) return "jamais";
+    const d = new Date(isoDT), j = Math.floor((Date.now() - d.getTime()) / 86400000);
+    if (j <= 0) return "aujourd'hui"; if (j === 1) return "hier"; if (j < 7) return `il y a ${j} jours`;
+    return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
+  };
+  const taille = (n) => n > 1048576 ? (n / 1048576).toFixed(1).replace(".", ",") + " Mo" : Math.max(1, Math.round(n / 1024)) + " Ko";
+
+  // ---------- agenda ----------
+  const pad = (n) => String(n).padStart(2, "0");
+  const stamp = (d) => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+  const stampUTC = (d) => `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}00Z`;
+  function evDates(day, h, m, dur) { const a = new Date(day); a.setHours(h, m, 0, 0); return [a, new Date(a.getTime() + dur * 60000)]; }
+  function gcal(ev) {
+    const [a, b] = evDates(ev.day, ev.h, ev.m, ev.dur);
+    let u = "https://calendar.google.com/calendar/render?action=TEMPLATE&text=" + encodeURIComponent(ev.title)
+      + "&dates=" + stamp(a) + "/" + stamp(b) + "&ctz=Europe/Paris&details=" + encodeURIComponent(ev.details);
+    if (ev.rrule) u += "&recur=" + encodeURIComponent("RRULE:" + ev.rrule);
+    return u;
+  }
+  function ics(ev) {
+    const [a, b] = evDates(ev.day, ev.h, ev.m, ev.dur);
+    const t = (s) => s.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
+    const L = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Kit de prospection//FR", "BEGIN:VEVENT",
+      "UID:" + Date.now() + Math.random().toString(36).slice(2) + "@kit-prospection", "DTSTAMP:" + stampUTC(new Date()),
+      "DTSTART:" + stampUTC(a), "DTEND:" + stampUTC(b), "SUMMARY:" + t(ev.title), "DESCRIPTION:" + t(ev.details), "URL:" + APP_URL];
+    if (ev.rrule) L.push("RRULE:" + ev.rrule);
+    L.push("BEGIN:VALARM", "ACTION:DISPLAY", "DESCRIPTION:" + t(ev.title), "TRIGGER:-PT0M", "END:VALARM", "END:VEVENT", "END:VCALENDAR");
+    return "data:text/calendar;charset=utf-8," + encodeURIComponent(L.join("\r\n"));
+  }
+  const evRelance = (e) => ({ title: "Relancer " + e.entreprise, day: fromIso(e.relance), h: 10, m: 0, dur: 15,
+    details: "Pas de réponse de " + e.entreprise + " ? C'est le moment de relancer.\nOuvre ton Kit de prospection, « Mon suivi » : le message est prêt.\n" + APP_URL });
+  function evQuotidien() {
+    const x = new Date(); x.setDate(x.getDate() + 1); while (x.getDay() === 0 || x.getDay() === 6) x.setDate(x.getDate() + 1);
+    return { title: "Mes candidatures (15 min)", day: x, h: 9, m: 0, dur: 15, rrule: "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;COUNT=15",
+      details: "15 minutes pour ma recherche : 2 candidatures et les relances du jour.\n" + APP_URL };
+  }
+  const liensAgenda = (ev, nom) => `<a href="${gcal(ev)}" target="_blank" rel="noopener">Google Agenda</a> · <a href="${ics(ev)}" download="${nom}.ics">Autre agenda</a>`;
+
+  // ---------- vues ----------
+  const VUES = ["login", "jeune", "equipe"];
+  function vue(n) {
+    VUES.forEach((v) => { $("#v-" + v).hidden = v !== n; });
+    $("#who").hidden = n === "login";
+    window.scrollTo({ top: 0 });
+  }
+  function logout(msg) {
+    ls.del(TK); ls.del(KIND);
+    J = null; ME = null;
+    initLogin();
+    if (msg) toast(msg);
+  }
+  $("#btn-logout").addEventListener("click", () => logout("À bientôt !"));
+
+  // =====================================================================
+  // CONNEXION
+  // =====================================================================
+  const params = new URLSearchParams(location.search);
+  function initLogin() {
+    vue("login");
+    const site = params.get("site");
+    if (SITES[site]) {
+      $("#lj-site").value = site;
+      $("#login-titre").textContent = `E2C ${SITES[site]} : bienvenue sur ton Kit de prospection.`;
+    }
+    if (params.has("equipe")) setTimeout(() => $("#ls-code").focus(), 50);
+  }
+  $("#f-jeune").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const err = $("#lj-err"); err.hidden = true;
+    const btn = ev.submitter || $("#f-jeune button[type=submit]"); btn.disabled = true;
+    try {
+      const r = await api("login-jeune", { site: $("#lj-site").value, ident: $("#lj-ident").value });
+      ls.set(TK, r.token); ls.set(KIND, "j");
+      startJeune(r.jeune);
+    } catch (e) { err.textContent = e.message; err.hidden = false; }
+    finally { btn.disabled = false; }
+  });
+  $("#f-staff").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const err = $("#ls-err"); err.hidden = true;
+    const btn = ev.submitter || $("#f-staff button[type=submit]"); btn.disabled = true;
+    try {
+      const r = await api("login-staff", { code: $("#ls-code").value });
+      ls.set(TK, r.token); ls.set(KIND, "s");
+      startEquipe(r.me);
+    } catch (e) { err.textContent = e.message; err.hidden = false; }
+    finally { btn.disabled = false; }
+  });
+
+  // =====================================================================
+  // ESPACE JEUNE
+  // =====================================================================
+  let J = null;
+  const S = { resultats: [], ouvert: null, centre: null, sub: "dossier" };
+  const nomComplet = () => `${J.prenom} ${J.nom}`.trim();
+  const objetDefaut = () => `Candidature – ${article(J.typ)} – ${nomComplet()}`;
+
+  $("#p-metier").innerHTML = `<option value="">Choisis…</option>` + METIERS.map(([v, l]) => `<option value="${v}">${l}</option>`).join("");
+  $("#s-metier").innerHTML = METIERS.map(([v, l]) => `<option value="${v}">${l}</option>`).join("");
+  $("#rayon").addEventListener("input", (e) => { $("#rayon-out").textContent = e.target.value + " km"; });
+
+  function startJeune(j) {
+    J = j;
+    vue("jeune");
+    $("#who-txt").textContent = `${J.prenom} · E2C ${J.siteNom}`;
+    $("#j-hello").textContent = `Bonjour ${J.prenom} !`;
+    $("#j-sous").textContent = `E2C ${J.siteNom}. Prépare ton dossier, cherche, envoie, relance.`;
+    remplirDossier();
+    const pret = !!J.cv && !!(J.lettre || "").trim();
+    showSub(pret ? (J.envois.length ? "suivi" : "chercher") : "dossier");
+    majJeune();
+  }
+
+  function majJeune() {
+    const n = (J.cv ? 1 : 0) + ((J.lettre || "").trim() ? 1 : 0);
+    const etat = $("#dossier-etat"); etat.textContent = n + "/2"; etat.classList.toggle("ok", n === 2);
+    $("#nb-envois").textContent = J.envois.length;
+    const t = todayIso();
+    const rel = J.envois.filter((e) => e.statut === "Envoyé" && e.relance <= t);
+    const b = $("#j-banner");
+    if (rel.length) {
+      b.hidden = false;
+      b.innerHTML = `<span><b>${rel.length === 1 ? "1 relance à faire" : rel.length + " relances à faire"} aujourd'hui</b> : ${rel.map((e) => esc(e.entreprise)).join(", ")}.</span> <button class="btn dark sm" type="button" id="go-suivi">Voir les messages</button>`;
+      $("#go-suivi").addEventListener("click", () => showSub("suivi"));
+    } else if (n < 2) {
+      b.hidden = false;
+      b.innerHTML = `<span><b>Commence par ton dossier</b> : ${!J.cv ? "dépose ton CV" : ""}${!J.cv && !(J.lettre || "").trim() ? " et " : ""}${!(J.lettre || "").trim() ? "colle ta lettre de motivation" : ""}. Ensuite, tu pourras écrire aux entreprises.</span>`;
+    } else b.hidden = true;
+  }
+
+  $$("#v-jeune .subtabs button").forEach((b) => b.addEventListener("click", () => showSub(b.dataset.sub)));
+  function showSub(name) {
+    S.sub = name;
+    $$("#v-jeune .subtabs button").forEach((x) => x.classList.toggle("on", x.dataset.sub === name));
+    ["dossier", "chercher", "suivi"].forEach((n) => { $("#sub-" + n).hidden = n !== name; });
+    if (name === "suivi") renderSuivi();
+    if (name === "chercher") { renderPret(); if (map) setTimeout(() => map.invalidateSize(), 50); }
+  }
+
+  // ----- dossier -----
+  function remplirDossier() {
+    $$("input[name=genre]").forEach((r) => { r.checked = r.value === J.genre; });
+    $("#p-typ").value = J.typ || "stage";
+    $("#p-metier").value = J.metier || "";
+    $("#s-metier").value = J.metier || "vente";
+    $("#rayon").value = J.rayon || 3; $("#rayon-out").textContent = (J.rayon || 3) + " km";
+    $("#p-objet").value = J.objet || objetDefaut();
+    $("#p-lettre").value = J.lettre || "";
+    renderCV(); etatLettre();
+  }
+  function renderCV() {
+    const box = $("#cv-box");
+    if (J.cv) {
+      box.innerHTML = `<div class="cv-ok"><span class="cv-ico" aria-hidden="true">PDF</span><div><b>${esc(J.cv.nom)}</b><br><span class="muted">${taille(J.cv.taille)} · déposé ${quand(J.cv.date)}</span></div>
+        <div class="cv-act"><button class="btn ghost sm" type="button" id="cv-dl">Télécharger</button><button class="btn ghost sm danger" type="button" id="cv-del">Retirer</button></div></div>`;
+      $(".cv-ico").textContent = /\.pdf$/i.test(J.cv.nom) ? "PDF" : "DOC";
+      $("#cv-dl").addEventListener("click", () => telecharger("cv-fichier", null, J.cv.nom).catch((e) => toast(e.message)));
+      $("#cv-del").addEventListener("click", async () => {
+        if (!confirmer("Retirer ce CV ?")) return;
+        try { J = (await api("cv-suppr", {})).jeune; renderCV(); majJeune(); toast("CV retiré."); } catch (e) { toast(e.message); }
+      });
+      $("#cv-label-txt").textContent = "Remplacer mon CV";
+    } else {
+      box.innerHTML = `<div class="cv-vide">Pas encore de CV.</div>`;
+      $("#cv-label-txt").textContent = "Déposer mon CV (PDF ou Word)";
+    }
+  }
+  // confirmation simple sans boîte de dialogue bloquante : double clic dans les 4 s
+  const confirmer = (() => { let last = 0, lastMsg = ""; return (msg) => {
+    if (Date.now() - last < 4000 && lastMsg === msg) { last = 0; return true; }
+    last = Date.now(); lastMsg = msg; toast(msg + " Clique encore une fois pour confirmer."); return false;
+  }; })();
+
+  $("#cv-input").addEventListener("change", async (ev) => {
+    const f = ev.target.files[0];
+    ev.target.value = "";
+    if (!f) return;
+    if (f.size > 3 * 1024 * 1024) { toast("Fichier trop lourd : 3 Mo maximum."); return; }
+    let type = f.type;
+    if (!type) type = /\.pdf$/i.test(f.name) ? "application/pdf" : /\.docx$/i.test(f.name) ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : /\.odt$/i.test(f.name) ? "application/vnd.oasis.opendocument.text" : /\.doc$/i.test(f.name) ? "application/msword" : "";
+    $("#cv-label-txt").textContent = "Envoi en cours…";
+    try {
+      const data = await new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(",")[1]); r.onerror = ko; r.readAsDataURL(f); });
+      J = (await api("cv", { nom: f.name, type, data })).jeune;
+      renderCV(); majJeune(); toast("CV enregistré ✓");
+    } catch (e) { toast(e.message); renderCV(); }
+  });
+
+  function etatLettre() {
+    const t = $("#p-lettre").value.trim();
+    const tag = $("#lettre-etat");
+    if (!t) { tag.textContent = "À compléter"; tag.className = "tag warn"; }
+    else if (!/\[\s*entreprise\s*\]/i.test(t)) { tag.textContent = "Astuce : ajoute [Entreprise]"; tag.className = "tag blue"; }
+    else { tag.textContent = "Prête ✓"; tag.className = "tag ok"; }
+  }
+  $("#p-lettre").addEventListener("input", () => { etatLettre(); planifierSave(); });
+  $("#p-objet").addEventListener("input", planifierSave);
+  $("#btn-insert").addEventListener("click", () => {
+    const ta = $("#p-lettre"), s = ta.selectionStart ?? ta.value.length, e = ta.selectionEnd ?? s;
+    ta.value = ta.value.slice(0, s) + "[Entreprise]" + ta.value.slice(e);
+    ta.focus(); ta.selectionStart = ta.selectionEnd = s + 12; etatLettre(); planifierSave();
+  });
+  $("#btn-modele").addEventListener("click", () => {
+    const ta = $("#p-lettre");
+    if (ta.value.trim() && !confirmer("Remplacer ta lettre par le modèle ?")) return;
+    ta.value = modeleLettre(); etatLettre(); planifierSave();
+  });
+  function modeleLettre() {
+    const f = J.genre === "F";
+    return `Madame, Monsieur,
+
+Je m'appelle ${nomComplet()} et je recherche ${article(J.typ)} dans ${domaine(J.metier)}. [Entreprise] est proche de chez moi et correspond à ce que je souhaite apprendre.
+
+Actuellement en formation à l'École de la deuxième chance de ${J.siteNom}, je suis ${f ? "motivée" : "motivé"}, ${f ? "ponctuelle" : "ponctuel"} et ${f ? "prête" : "prêt"} à m'investir. Vous trouverez mon CV en pièce jointe. Je serais ${f ? "heureuse" : "heureux"} de vous rencontrer, ou de vous appeler au moment qui vous convient.
+
+Je vous remercie de votre attention.
+
+Cordialement,
+${nomComplet()}`;
+  }
+  let saveT = null;
+  function planifierSave() { $("#save-etat").textContent = "Modifications non enregistrées…"; clearTimeout(saveT); saveT = setTimeout(sauver, 1500); }
+  async function sauver() {
+    clearTimeout(saveT);
+    const genre = ($("input[name=genre]:checked") || {}).value || "";
+    try {
+      J = (await api("profil", { genre, typ: $("#p-typ").value, metier: $("#p-metier").value, lettre: $("#p-lettre").value, objet: $("#p-objet").value })).jeune;
+      $("#save-etat").textContent = "Enregistré ✓"; majJeune();
+      if ($("#p-metier").value) $("#s-metier").value = $("#p-metier").value;
+    } catch (e) { $("#save-etat").textContent = "Pas enregistré : " + e.message; }
+  }
+  $("#btn-save").addEventListener("click", async () => { await sauver(); toast("Dossier enregistré ✓"); });
+  $$("input[name=genre]").forEach((r) => r.addEventListener("change", sauver));
+  $("#p-typ").addEventListener("change", () => {
+    const ancien = $("#p-objet").value, defOld = objetDefaut();
+    J.typ = $("#p-typ").value;
+    if (!ancien || ancien === defOld || /^Candidature – /.test(ancien)) $("#p-objet").value = objetDefaut();
+    sauver();
+  });
+  $("#p-metier").addEventListener("change", sauver);
+
+  function renderPret() {
+    const items = [[!!J.cv, "CV déposé"], [!!(J.lettre || "").trim(), "Lettre prête"]];
+    $("#pret").innerHTML = `<div class="pret-t">Mon dossier</div>` + items.map(([ok, t]) => `<div class="pret-i ${ok ? "ok" : "ko"}">${ok ? "✓" : "!"} ${t}</div>`).join("")
+      + (items.every((i) => i[0]) ? "" : `<button class="btn ghost sm" type="button" id="go-dossier">Compléter mon dossier</button>`);
+    const g = $("#go-dossier"); if (g) g.addEventListener("click", () => showSub("dossier"));
+  }
+
+  // ----- recherche -----
+  let map = null, layer = null;
+  $("#f-search").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const metier = $("#s-metier").value, rayon = $("#rayon").value;
+    if (metier !== J.metier || +rayon !== +J.rayon) api("profil", { metier, rayon }).then((r) => { J = r.jeune; $("#p-metier").value = J.metier; }).catch(() => {});
+    const qs = new URLSearchParams({ site: J.site, metier, rayon, sal: $("#sal").checked ? "1" : "0" });
+    $("#empty").hidden = true; $("#error").hidden = true; $("#res").hidden = true; $("#loading").hidden = false;
+    try {
+      const r = await fetch("/api/entreprises?" + qs);
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || "Erreur");
+      S.resultats = data.entreprises; S.ouvert = null; S.centre = data.site;
+      renderResultats();
+      if (window.innerWidth < 900) $("#res").scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (e) {
+      $("#error").textContent = e.message || "Le registre des entreprises ne répond pas. Réessaie dans un instant.";
+      $("#error").hidden = false;
+    } finally { $("#loading").hidden = true; }
+  });
+
+  function renderResultats() {
+    const res = S.resultats;
+    $("#res").hidden = false;
+    if (!res.length) {
+      $("#res-title").textContent = "Aucune entreprise trouvée";
+      $("#liste").innerHTML = `<li class="card empty small"><p>Augmente la distance ou décoche « salariés ».</p></li>`;
+      $("#map").hidden = true; return;
+    }
+    $("#map").hidden = false;
+    $("#res-title").textContent = `${res.length} entreprise${res.length > 1 ? "s" : ""} près du site`;
+    renderMap(); renderListe();
+  }
+  function renderMap() {
+    if (!window.L) { $("#map").hidden = true; return; }
+    if (!map) {
+      map = L.map("map", { scrollWheelZoom: false });
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(map);
+    }
+    if (layer) layer.remove();
+    layer = L.layerGroup().addTo(map);
+    const pts = [];
+    if (S.centre) {
+      L.marker([S.centre.lat, S.centre.lon], { icon: L.divIcon({ className: "pin-site", iconSize: [22, 22] }), title: "Site E2C" }).bindTooltip("Site E2C (approx.)").addTo(layer);
+      pts.push([S.centre.lat, S.centre.lon]);
+    }
+    S.resultats.forEach((e, i) => {
+      const m = L.marker([e.lat, e.lon], { icon: L.divIcon({ className: "pin" + (S.ouvert === e.siret ? " on" : ""), html: String(i + 1), iconSize: [26, 26] }) }).bindTooltip(esc(e.nom)).addTo(layer);
+      m.on("click", () => ouvrir(e.siret, true));
+      pts.push([e.lat, e.lon]);
+    });
+    map.fitBounds(pts, { padding: [24, 24], maxZoom: 15 });
+    setTimeout(() => map.invalidateSize(), 60);
+  }
+  function renderListe() {
+    const deja = new Set(J.envois.map((e) => e.siret));
+    $("#liste").innerHTML = S.resultats.map((e, i) => {
+      const q = encodeURIComponent(`${e.nom} ${e.adresse}`);
+      const open = S.ouvert === e.siret, sent = deja.has(e.siret);
+      return `<li class="ent${open ? " open" : ""}" id="e-${e.siret}">
+        <div class="ent-top">
+          <div class="ent-main"><span class="ent-n">${i + 1}</span>
+            <div><h3>${esc(e.nom)}</h3><div class="addr">${esc(e.adresse)}</div>
+              <div class="chips"><span class="chip dist">${e.distance} km</span>${e.effectif ? `<span class="chip">${esc(e.effectif)}</span>` : ""}</div></div>
+          </div>
+          ${sent ? `<span class="btn done">Envoyé ✓</span>` : `<button class="btn ${open ? "ghost" : "dark"}" data-ecrire="${e.siret}" type="button">${open ? "Fermer" : "Écrire"}</button>`}
+        </div>
+        <div class="links">
+          <a href="https://www.google.com/maps/search/?api=1&query=${q}" target="_blank" rel="noopener">Carte</a>
+          <a href="https://www.google.com/search?q=${q}" target="_blank" rel="noopener">Trouver le site / contact</a>
+          <a href="https://annuaire-entreprises.data.gouv.fr/etablissement/${e.siret}" target="_blank" rel="noopener">Fiche officielle</a>
+        </div>
+        ${open && !sent ? panneau(e) : ""}
+      </li>`;
+    }).join("");
+    $$("[data-ecrire]").forEach((b) => b.addEventListener("click", () => ouvrir(b.dataset.ecrire)));
+    bindPanneau();
+  }
+
+  function corpsPour(e) {
+    const l = (J.lettre || "").trim();
+    if (!l) return modeleLettre().replace(/\[\s*entreprise\s*\]/gi, e.nom);
+    return l.replace(/\[\s*entreprise\s*\]/gi, e.nom).replace(/\[\s*ville\s*\]/gi, e.ville || "");
+  }
+  function panneau(e) {
+    const sansLettre = !(J.lettre || "").trim();
+    return `<div class="msg">
+      ${sansLettre ? `<p class="alert soft">Ta lettre n'est pas encore dans ton dossier : voici un message type. <a href="#" data-go-dossier>Ajouter ma lettre</a></p>` : ""}
+      <label class="step" for="obj-${e.siret}"><i>✎</i>Objet</label>
+      <input id="obj-${e.siret}" class="obj" value="${esc(J.objet || objetDefaut())}">
+      <label class="step" for="txt-${e.siret}"><i>✎</i>Ta lettre pour ${esc(e.nom)} (tu peux la modifier)</label>
+      <textarea id="txt-${e.siret}">${esc(corpsPour(e))}</textarea>
+      <div class="step"><i>1</i>Copie ta lettre</div>
+      <button class="btn primary big" type="button" data-copier="${e.siret}">Copier la lettre</button>
+      <div class="step"><i>2</i>Ouvre ta messagerie : l'objet et la lettre sont déjà dedans</div>
+      <div class="mail-btns">
+        <a class="btn ghost" data-mail="gmail" target="_blank" rel="noopener">Gmail</a>
+        <a class="btn ghost" data-mail="outlook" target="_blank" rel="noopener">Outlook</a>
+        <a class="btn ghost" data-mail="autre">Autre messagerie</a>
+      </div>
+      <p class="hint">Si la lettre n'apparaît pas, colle-la (Ctrl + V). Ajoute l'adresse e-mail de l'entreprise : elle est sur son site (« Trouver le site / contact »), sinon appelle pour la demander.</p>
+      <div class="step"><i>3</i>Joins ton CV au message</div>
+      ${J.cv ? `<button class="btn ghost big" type="button" data-cv>Télécharger mon CV (${esc(J.cv.nom)})</button>
+        <p class="hint">Dans ta messagerie, clique sur le trombone 📎 et choisis ce fichier (dossier « Téléchargements »).</p>`
+        : `<p class="alert soft">Tu n'as pas encore déposé de CV. <a href="#" data-go-dossier>Déposer mon CV</a></p>`}
+      <div class="step"><i>4</i>C'est envoyé ?</div>
+      <button class="btn dark big" type="button" data-envoye="${e.siret}">J'ai envoyé ma candidature</button>
+    </div>`;
+  }
+  function bindPanneau() {
+    const e = S.resultats.find((x) => x.siret === S.ouvert);
+    if (!e) return;
+    const ta = $(`#txt-${e.siret}`), obj = $(`#obj-${e.siret}`);
+    if (!ta) return;
+    const majLiens = () => { const l = mailLinks(obj.value, ta.value); $$("[data-mail]").forEach((a) => { a.href = l[a.dataset.mail]; }); };
+    majLiens();
+    ta.addEventListener("input", majLiens); obj.addEventListener("input", majLiens);
+    $$("[data-go-dossier]").forEach((a) => a.addEventListener("click", (ev) => { ev.preventDefault(); showSub("dossier"); }));
+    $(`[data-copier="${e.siret}"]`).addEventListener("click", async (ev) => {
+      const btn = ev.currentTarget;
+      const ok = await copier(ta.value);
+      btn.textContent = ok ? "Lettre copiée ✓" : "Sélectionne le texte et fais Ctrl + C";
+      if (ok) toast("Lettre copiée. Colle-la dans ta messagerie si besoin (Ctrl + V).");
+    });
+    const cvb = $("[data-cv]");
+    if (cvb) cvb.addEventListener("click", () => telecharger("cv-fichier", null, J.cv.nom).then(() => toast("CV téléchargé : joins-le au message.")).catch((x) => toast(x.message)));
+    $(`[data-envoye="${e.siret}"]`).addEventListener("click", async (ev) => {
+      const btn = ev.currentTarget; btn.disabled = true;
+      try {
+        J = (await api("envoi", { siret: e.siret, entreprise: e.nom, adresse: e.adresse, ville: e.ville })).jeune;
+        S.ouvert = null; majJeune(); renderListe(); renderMap();
+        const env = J.envois.find((x) => x.siret === e.siret);
+        const li = $("#e-" + e.siret);
+        if (li && env) li.insertAdjacentHTML("beforeend", `<div class="rappel-ok"><b>Bravo, c'est noté !</b> Ajoute le rappel de relance dans ton agenda (le ${fr(env.relance)}) : ${liensAgenda(evRelance(env), "relance-" + e.siret)}</div>`);
+        toast("Ajouté à « Mon suivi ».");
+      } catch (x) { toast(x.message); btn.disabled = false; }
+    });
+  }
+  function ouvrir(siret, depuisCarte) {
+    S.ouvert = S.ouvert === siret ? null : siret;
+    renderListe(); renderMap();
+    const el = $("#e-" + siret);
+    if (el && (depuisCarte || S.ouvert)) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  // ----- suivi -----
+  function messageRelance(e) {
+    const f = J.genre === "F";
+    return `Madame, Monsieur,
+
+Le ${fr(e.envoye)}, je vous ai envoyé ma candidature pour ${article(e.typ || J.typ)} chez ${e.entreprise}. Je me permets de revenir vers vous : je suis toujours très ${f ? "intéressée" : "intéressé"} et ${f ? "disponible" : "disponible"} pour un entretien ou un échange téléphonique.
+
+Je vous remercie par avance pour votre réponse.
+
+Cordialement,
+${nomComplet()}`;
+  }
+  function renderSuivi() {
+    const env = J.envois, t = todayIso();
+    const rel = env.filter((e) => e.statut === "Envoyé" && e.relance <= t);
+    $("#k-env").textContent = env.length;
+    $("#k-rep").textContent = env.filter((e) => REPONSES.includes(e.statut)).length;
+    $("#k-rel").textContent = rel.length;
+    $("#suivi-vide").hidden = env.length > 0;
+    $("#suivi-table").hidden = env.length === 0;
+    const q = evQuotidien();
+    $("#rappel-quotidien .rq-liens").innerHTML = `<a class="btn ghost" href="${gcal(q)}" target="_blank" rel="noopener">Google Agenda</a><a class="btn ghost" href="${ics(q)}" download="rappel-candidatures.ics">Autre agenda</a>`;
+    $("#suivi-table tbody").innerHTML = env.slice().reverse().map((e) => {
+      const arel = e.statut === "Envoyé" && e.relance <= t;
+      return `<tr>
+        <td><b>${esc(e.entreprise)}</b>${e.ville ? `<br><span class="muted sm">${esc(e.ville)}</span>` : ""}${arel ? ` <span class="tag warn">À relancer</span>` : ""}</td>
+        <td>${fr(e.envoye)}</td>
+        <td>${e.relanceFaite ? "Faite le " + fr(e.relanceFaite) : fr(e.relance)}</td>
+        <td><select data-statut="${esc(e.siret)}" aria-label="Statut pour ${esc(e.entreprise)}">${STATUTS.map((s) => `<option${s === e.statut ? " selected" : ""}>${s}</option>`).join("")}</select></td>
+        <td class="sm nowrap">${e.statut === "Envoyé" ? liensAgenda(evRelance(e), "relance-" + e.siret) : "—"}</td>
+      </tr>`;
+    }).join("");
+    $$("[data-statut]").forEach((s) => s.addEventListener("change", async () => {
+      try { J = (await api("statut", { siret: s.dataset.statut, statut: s.value })).jeune; majJeune(); renderSuivi(); toast("Statut mis à jour."); }
+      catch (e) { toast(e.message); }
+    }));
+    $("#relances").hidden = rel.length === 0;
+    $("#relances-liste").innerHTML = rel.map((e) => {
+      const txt = messageRelance(e);
+      const l = mailLinks(`Relance – candidature de ${nomComplet()}`, txt);
+      return `<details class="rel"><summary>Relancer ${esc(e.entreprise)}</summary>
+        <pre>${esc(txt)}</pre>
+        <div class="row"><button class="btn primary" type="button" data-copy-rel="${esc(txt)}">Copier</button>
+        <a class="btn ghost" href="${l.gmail}" target="_blank" rel="noopener">Gmail</a>
+        <a class="btn ghost" href="${l.outlook}" target="_blank" rel="noopener">Outlook</a>
+        <a class="btn ghost" href="${l.autre}">Autre</a>
+        <button class="btn dark" type="button" data-relance-faite="${esc(e.siret)}">J'ai relancé</button></div></details>`;
+    }).join("");
+    $$("[data-copy-rel]").forEach((b) => b.addEventListener("click", async () => { if (await copier(b.dataset.copyRel)) { b.textContent = "Copié ✓"; toast("Relance copiée."); } }));
+    $$("[data-relance-faite]").forEach((b) => b.addEventListener("click", async () => {
+      try { J = (await api("statut", { siret: b.dataset.relanceFaite, statut: "Relancé" })).jeune; majJeune(); renderSuivi(); toast("Relance notée ✓"); }
+      catch (e) { toast(e.message); }
+    }));
+  }
+
+  // =====================================================================
+  // ESPACE ÉQUIPE
+  // =====================================================================
+  let ME = null;
+  const E = { site: "tous", jeunes: [] };
+  const siteCourant = () => (E.site === "tous" ? (ME.sites.length === 1 ? ME.sites[0][0] : null) : E.site);
+
+  function startEquipe(me) {
+    ME = me;
+    vue("equipe");
+    $("#who-txt").textContent = `${ME.nom} · ${ME.roleNom}`;
+    $("#e-titre").textContent = ME.sites.length > 1 ? "Les sites en un coup d'œil." : `E2C ${ME.sites[0][1]} : le groupe en un coup d'œil.`;
+    $("#e-sous").textContent = "Qui avance, qui relance, qui n'a encore rien envoyé.";
+    $("#btn-equipe").hidden = !ME.gere;
+    E.site = ME.sites.length > 1 ? "tous" : ME.sites[0][0];
+    const nav = $("#e-sites");
+    nav.hidden = ME.sites.length < 2;
+    nav.innerHTML = (ME.sites.length > 1 ? `<button data-site="tous" class="on">Tous les sites</button>` : "") + ME.sites.map(([v, l]) => `<button data-site="${v}">${l}</button>`).join("");
+    $$("button", nav).forEach((b) => b.addEventListener("click", () => { E.site = b.dataset.site; $$("button", nav).forEach((x) => x.classList.toggle("on", x === b)); chargerJeunes(); }));
+    chargerJeunes();
+  }
+
+  async function chargerJeunes() {
+    $("#c-table tbody").innerHTML = `<tr><td colspan="8" class="muted">Chargement…</td></tr>`;
+    try {
+      const r = await api("jeunes", E.site === "tous" ? {} : { site: E.site }, { get: true });
+      E.jeunes = r.jeunes; renderEquipe();
+    } catch (e) { $("#c-table tbody").innerHTML = `<tr><td colspan="8">${esc(e.message)}</td></tr>`; }
+  }
+  function renderEquipe() {
+    const js = E.jeunes, multi = E.site === "tous" && ME.sites.length > 1;
+    const sum = (k) => js.reduce((a, j) => a + j[k], 0);
+    $("#c-jeunes").textContent = js.length; $("#c-env").textContent = sum("envois"); $("#c-rep").textContent = sum("reponses"); $("#c-rel").textContent = sum("aRelancer");
+    $("#c-table").classList.toggle("sans-site", !multi);
+    $("#c-vide").hidden = js.length > 0; $("#c-table").hidden = js.length === 0;
+    const sans = js.filter((j) => j.envois === 0);
+    $("#c-alerte").hidden = !sans.length || !js.length;
+    $("#c-alerte").textContent = sans.length === js.length ? "Personne n'a encore envoyé de candidature." : `Pas encore d'envoi : ${sans.map((j) => j.prenom + " " + (j.nom || "").slice(0, 1) + ".").join(", ")} — un coup de main peut être utile.`;
+    $("#c-table tbody").innerHTML = js.map((j, i) => `<tr data-i="${i}" tabindex="0" class="${j.envois === 0 ? "flag" : ""}">
+      <td><b>${esc(j.prenom)} ${esc(j.nom)}</b><br><span class="muted sm">${esc(j.ident)}${j.formateur ? " · " + esc(j.formateur) : ""}</span></td>
+      <td class="col-site">${esc(SITES[j.site])}</td>
+      <td>${esc(metierLabel(j.metier) || "—")}</td>
+      <td class="nowrap"><span class="tag ${j.cv ? "ok" : "bad"}">CV</span> <span class="tag ${j.lettre ? "ok" : "bad"}">Lettre</span></td>
+      <td class="num">${j.envois}</td><td class="num">${j.reponses}</td>
+      <td class="num">${j.envois === 0 ? `<span class="tag bad">Aucun envoi</span>` : j.aRelancer ? `<span class="tag warn">${j.aRelancer}</span>` : "0"}</td>
+      <td class="sm">${quand(j.derniere)}</td></tr>`).join("");
+    $$("#c-table tbody tr[data-i]").forEach((tr) => {
+      const go = () => ouvrirJeune(E.jeunes[+tr.dataset.i]);
+      tr.addEventListener("click", go); tr.addEventListener("keydown", (ev) => { if (ev.key === "Enter") go(); });
+    });
+  }
+
+  // ----- dialogues -----
+  const dlg = $("#dlg");
+  function ouvrirDlg(html, onBind) {
+    $("#dlg-in").innerHTML = `<button class="dlg-x" type="button" aria-label="Fermer">×</button>` + html;
+    $(".dlg-x", dlg).addEventListener("click", () => dlg.close());
+    if (onBind) onBind($("#dlg-in"));
+    if (!dlg.open) dlg.showModal();
+  }
+  dlg.addEventListener("click", (ev) => { if (ev.target === dlg) dlg.close(); });
+
+  async function ouvrirJeune(j) {
+    ouvrirDlg(`<h2>${esc(j.prenom)} ${esc(j.nom)}</h2><p class="muted">Chargement…</p>`);
+    try {
+      const r = await api("jeune", { site: j.site, key: j.key }, { get: true });
+      const d = r.jeune, t = todayIso();
+      ouvrirDlg(`<h2>${esc(d.prenom)} ${esc(d.nom)}</h2>
+        <p class="muted">E2C ${esc(SITES[d.site])} · identifiant <b>${esc(d.ident)}</b>${d.code ? " · code E2C " + esc(d.code) : ""} · ${esc(metierLabel(d.metier) || "métier non choisi")}${d.typ ? " · " + article(d.typ) : ""}</p>
+        <div class="kpis kpis3 mini"><div class="kpi"><b>${r.resume.envois}</b><span>envoyées</span></div><div class="kpi"><b>${r.resume.reponses}</b><span>réponses</span></div><div class="kpi accent"><b>${r.resume.aRelancer}</b><span>à relancer</span></div></div>
+        <div class="dlg-row">
+          <div><b>CV</b> : ${d.cv ? `${esc(d.cv.nom)} <button class="btn ghost sm" type="button" id="d-cv">Télécharger</button>` : `<span class="tag bad">pas encore déposé</span>`}</div>
+          <div><b>Lettre</b> : ${d.lettre ? `<span class="tag ok">prête</span> <button class="btn ghost sm" type="button" id="d-lettre">Lire</button>` : `<span class="tag bad">pas encore</span>`}</div>
+        </div>
+        <pre class="lettre-pre" id="d-lettre-txt" hidden>${esc(d.lettre)}</pre>
+        <label class="inline">Formateur référent <input id="d-form" value="${esc(d.formateur)}" placeholder="Nom du formateur"><button class="btn ghost sm" type="button" id="d-form-ok">Enregistrer</button></label>
+        <h3 class="mt">Candidatures</h3>
+        ${d.envois.length ? `<div class="table-wrap"><table><thead><tr><th>Entreprise</th><th>Envoyée</th><th>Relance</th><th>Statut</th></tr></thead><tbody>
+          ${d.envois.slice().reverse().map((e) => `<tr><td><b>${esc(e.entreprise)}</b><br><span class="muted sm">${esc(e.ville)}</span></td><td>${fr(e.envoye)}</td>
+          <td>${e.relanceFaite ? "faite le " + fr(e.relanceFaite) : (e.statut === "Envoyé" && e.relance <= t ? `<span class="tag warn">à faire</span>` : fr(e.relance))}</td><td>${esc(e.statut)}</td></tr>`).join("")}
+        </tbody></table></div>` : `<p class="muted">Aucune candidature pour le moment.</p>`}
+        <div class="dlg-foot">
+          <button class="btn ghost sm" type="button" id="d-carte">Imprimer sa carte</button>
+          ${ME.gere ? `<button class="btn ghost sm danger" type="button" id="d-suppr">Retirer ce jeune</button>` : ""}
+        </div>`, (root) => {
+        const cv = $("#d-cv", root); if (cv) cv.addEventListener("click", () => telecharger("cv-fichier", { site: d.site, key: d.key }, d.cv.nom).catch((e) => toast(e.message)));
+        const lt = $("#d-lettre", root); if (lt) lt.addEventListener("click", () => { const p = $("#d-lettre-txt", root); p.hidden = !p.hidden; });
+        $("#d-form-ok", root).addEventListener("click", async () => {
+          try { await api("maj-jeune", { site: d.site, key: d.key, formateur: $("#d-form", root).value }); toast("Enregistré ✓"); chargerJeunes(); } catch (e) { toast(e.message); }
+        });
+        $("#d-carte", root).addEventListener("click", () => imprimerCartes([{ prenom: d.prenom, nom: d.nom, ident: d.ident, site: d.site }]));
+        const sp = $("#d-suppr", root);
+        if (sp) sp.addEventListener("click", async () => {
+          if (!confirmer(`Retirer ${d.prenom} ${d.nom} et ses données ?`)) return;
+          try { await api("suppr-jeune", { site: d.site, key: d.key }); dlg.close(); toast("Jeune retiré."); chargerJeunes(); } catch (e) { toast(e.message); }
+        });
+      });
+    } catch (e) { ouvrirDlg(`<p>${esc(e.message)}</p>`); }
+  }
+
+  const optionsSites = (sel) => ME.sites.map(([v, l]) => `<option value="${v}"${v === sel ? " selected" : ""}>${l}</option>`).join("");
+
+  // ----- ajout de jeunes -----
+  function parseLignes(txt) {
+    return txt.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map((l) => {
+      let p = [];
+      for (const sep of [/\t|;/, /,/, /\s+/]) {
+        p = l.split(sep).map((x) => x.trim()).filter((x) => x !== "");
+        if (p.length >= 2) break;
+      }
+      if (p.length < 2) return { prenom: p[0] || "", nom: "", code: "" };
+      // un dernier élément contenant un chiffre = code E2C (facultatif)
+      const code = p.length > 2 && /\d/.test(p[p.length - 1]) ? p.pop() : "";
+      return { prenom: p[0], nom: p.slice(1).join(" "), code };
+    }).filter((x) => !/^pr[ée]nom$/i.test(x.prenom));
+  }
+  $("#btn-ajout").addEventListener("click", () => {
+    ouvrirDlg(`<h2>Ajouter des jeunes</h2>
+      <p class="muted">Une ligne par jeune : <b>Prénom ; Nom</b> (le code E2C peut suivre, facultatif). Vous pouvez coller directement des colonnes copiées depuis Excel ou UP2C. Chaque jeune se connectera avec <b>prénom.nom</b>.</p>
+      <label>Site <select id="a-site">${optionsSites(siteCourant() || ME.sites[0][0])}</select></label>
+      <label>Formateur référent (facultatif) <input id="a-form" placeholder="ex. Diego"></label>
+      <label>Liste des jeunes <textarea id="a-txt" rows="8" placeholder="Léa ; Martin&#10;Karim ; Diallo"></textarea></label>
+      <p class="hint" id="a-apercu">0 jeune détecté.</p>
+      <button class="btn primary big" type="button" id="a-ok">Ajouter</button>
+      <div id="a-res"></div>`, (root) => {
+      const ap = () => { const l = parseLignes($("#a-txt", root).value); const ko = l.filter((x) => !x.prenom || !x.nom).length;
+        $("#a-apercu", root).textContent = `${l.length} jeune${l.length > 1 ? "s" : ""} détecté${l.length > 1 ? "s" : ""}${ko ? ` (dont ${ko} incomplet${ko > 1 ? "s" : ""})` : ""}.`; };
+      $("#a-txt", root).addEventListener("input", ap);
+      $("#a-ok", root).addEventListener("click", async (ev) => {
+        const lignes = parseLignes($("#a-txt", root).value);
+        if (!lignes.length) { toast("Collez au moins une ligne."); return; }
+        ev.currentTarget.disabled = true;
+        try {
+          const r = await api("ajout-jeunes", { site: $("#a-site", root).value, formateur: $("#a-form", root).value, lignes });
+          $("#a-res", root).innerHTML = `<div class="rappel-ok"><b>${r.crees.length} jeune${r.crees.length > 1 ? "s" : ""} ajouté${r.crees.length > 1 ? "s" : ""}.</b>
+            ${r.existants.length ? `<br>Déjà présents : ${esc(r.existants.join(", "))}.` : ""}
+            ${r.erreurs.length ? `<br>Non ajoutés : ${esc(r.erreurs.join(" ; "))}.` : ""}
+            ${r.crees.length ? `<br><button class="btn dark sm" type="button" id="a-print">Imprimer leurs cartes</button>` : ""}</div>`;
+          const pr = $("#a-print", root); if (pr) pr.addEventListener("click", () => imprimerCartes(r.crees));
+          $("#a-txt", root).value = ""; ap();
+          chargerJeunes();
+        } catch (e) { toast(e.message); }
+        finally { ev.currentTarget && (ev.currentTarget.disabled = false); $("#a-ok", root).disabled = false; }
+      });
+    });
+  });
+
+  // ----- impression : cartes et QR du site -----
+  const siteUrl = (site) => `${location.origin}/pilote/?site=${site}`;
+  function imprimer(html, classe) {
+    const z = $("#print-zone");
+    z.className = "print-only " + (classe || "");
+    z.innerHTML = html;
+    if (dlg.open) dlg.close();
+    setTimeout(() => { window.print(); }, 150);
+  }
+  function carteHtml(j) {
+    return `<div class="carte">
+      <div class="carte-h"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#152238"/><circle cx="16" cy="16" r="8" fill="none" stroke="#ff6b3d" stroke-width="3"/><circle cx="16" cy="16" r="2.5" fill="#ff6b3d"/></svg><span>Kit de prospection</span><em>E2C ${esc(SITES[j.site])}</em></div>
+      <div class="carte-b">
+        <div class="carte-t">
+          <div class="carte-nom">${esc(j.prenom)} ${esc(j.nom)}</div>
+          <div class="carte-l">Mon identifiant</div><div class="carte-code">${esc(j.ident)}</div>
+          <div class="carte-aide">Scanne le QR code et entre ton identifiant.</div>
+        </div>
+        <div class="carte-qr">${window.kpQR ? window.kpQR(siteUrl(j.site)) : ""}</div>
+      </div>
+      <div class="carte-f">${esc(location.host)}/pilote</div>
+    </div>`;
+  }
+  function imprimerCartes(liste) {
+    if (!liste.length) { toast("Aucun jeune à imprimer."); return; }
+    imprimer(`<div class="cartes">${liste.map(carteHtml).join("")}</div>`, "p-cartes");
+  }
+  $("#btn-cartes").addEventListener("click", () => {
+    const js = E.jeunes;
+    if (!js.length) { toast("Ajoutez d'abord des jeunes."); return; }
+    ouvrirDlg(`<h2>Cartes à imprimer</h2>
+      <p class="muted">Une carte par jeune (format carte de visite, 10 par page A4), avec son identifiant et le QR code de son site.</p>
+      <div class="check-list">${js.map((j, i) => `<label class="check"><input type="checkbox" data-c="${i}" checked> ${esc(j.prenom)} ${esc(j.nom)} <span class="muted sm">(${esc(SITES[j.site])})</span></label>`).join("")}</div>
+      <div class="row-btns"><button class="btn ghost sm" type="button" id="c-none">Tout décocher</button><button class="btn primary" type="button" id="c-go">Imprimer</button></div>`, (root) => {
+      $("#c-none", root).addEventListener("click", () => $$("[data-c]", root).forEach((c) => { c.checked = false; }));
+      $("#c-go", root).addEventListener("click", () => imprimerCartes($$("[data-c]", root).filter((c) => c.checked).map((c) => js[+c.dataset.c])));
+    });
+  });
+  function afficheSite(site) {
+    return `<div class="affiche">
+      <div class="aff-h"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#152238"/><circle cx="16" cy="16" r="8" fill="none" stroke="#ff6b3d" stroke-width="3"/><circle cx="16" cy="16" r="2.5" fill="#ff6b3d"/></svg> Kit de prospection</div>
+      <div class="aff-site">E2C ${esc(SITES[site])}</div>
+      <h1>Trouve ton stage, ton alternance ou ton emploi.</h1>
+      <div class="aff-qr">${window.kpQR ? window.kpQR(siteUrl(site), "Q") : ""}</div>
+      <p class="aff-scan">Scanne avec ton téléphone</p>
+      <p class="aff-aide">puis entre ton identifiant : <b>prénom.nom</b></p>
+      <p class="aff-url">${esc(location.host)}/pilote/?site=${site}</p>
+    </div>`;
+  }
+  $("#btn-qr").addEventListener("click", () => {
+    const s = siteCourant();
+    if (s) { imprimer(afficheSite(s), "p-affiche"); return; }
+    ouvrirDlg(`<h2>QR code du site</h2><p class="muted">Une affiche A4 avec le QR code qui ouvre le Kit directement sur la page du site.</p>
+      <div class="row-btns">${ME.sites.map(([v, l]) => `<button class="btn ghost" type="button" data-aff="${v}">${l}</button>`).join("")}
+      <button class="btn primary" type="button" data-aff="*">Les 3 affiches</button></div>`, (root) => {
+      $$("[data-aff]", root).forEach((b) => b.addEventListener("click", () => {
+        const l = b.dataset.aff === "*" ? ME.sites.map((x) => x[0]) : [b.dataset.aff];
+        imprimer(l.map(afficheSite).join(""), "p-affiche");
+      }));
+    });
+  });
+
+  // ----- export -----
+  $("#btn-export").addEventListener("click", async () => {
+    try { await telecharger("export", E.site === "tous" ? {} : { site: E.site }, "kit-prospection.xlsx"); toast("Fichier Excel téléchargé."); }
+    catch (e) { toast(e.message); }
+  });
+
+  // ----- équipe et accès -----
+  $("#btn-equipe").addEventListener("click", ouvrirEquipe);
+  async function ouvrirEquipe() {
+    ouvrirDlg(`<h2>Équipe et accès</h2><p class="muted">Chargement…</p>`);
+    try {
+      const r = await api("formateurs", null, { get: true });
+      ouvrirDlg(`<h2>Équipe et accès</h2>
+        <p class="muted">Chaque formateur a son code personnel : il voit tous les jeunes de son site. Le code n'est affiché qu'une fois, à la création.</p>
+        <div class="table-wrap"><table><thead><tr><th>Nom</th><th>Rôle</th><th>Site</th><th></th></tr></thead><tbody>
+        ${r.equipe.map((m) => `<tr><td><b>${esc(m.nom)}</b></td><td>${esc(m.roleNom)}</td><td>${m.site ? esc(SITES[m.site]) : "Tous"}</td>
+          <td>${m.fixe ? "" : `<button class="btn ghost sm danger" type="button" data-del="${esc(m.id)}">Désactiver</button>`}</td></tr>`).join("")}
+        </tbody></table></div>
+        <h3 class="mt">Ajouter un formateur</h3>
+        <div class="add-form">
+          <label>Prénom et nom <input id="f-nom" placeholder="ex. Paul Durand"></label>
+          <label>Site <select id="f-site">${optionsSites(siteCourant() || ME.site || ME.sites[0][0])}</select></label>
+          <button class="btn primary" type="button" id="f-ok">Créer son accès</button>
+        </div>
+        <div id="f-res"></div>`, (root) => {
+        $$("[data-del]", root).forEach((b) => b.addEventListener("click", async () => {
+          if (!confirmer("Désactiver cet accès ?")) return;
+          try { await api("suppr-formateur", { id: b.dataset.del }); toast("Accès désactivé."); ouvrirEquipe(); } catch (e) { toast(e.message); }
+        }));
+        $("#f-ok", root).addEventListener("click", async () => {
+          const nom = $("#f-nom", root).value.trim();
+          if (!nom) { toast("Indiquez le nom."); return; }
+          try {
+            const x = (await api("ajout-formateur", { nom, site: $("#f-site", root).value })).formateur;
+            $("#f-res", root).innerHTML = `<div class="rappel-ok"><b>Accès créé pour ${esc(x.nom)} (${esc(x.siteNom)}).</b><br>Son code : <span class="code-big">${esc(x.code)}</span><br>
+              <span class="sm">Notez-le ou imprimez sa carte maintenant : il ne sera plus affiché.</span><br>
+              <button class="btn dark sm" type="button" id="f-print">Imprimer sa carte d'accès</button></div>`;
+            $("#f-print", root).addEventListener("click", () => imprimer(`<div class="cartes"><div class="carte">
+              <div class="carte-h"><svg viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#152238"/><circle cx="16" cy="16" r="8" fill="none" stroke="#ff6b3d" stroke-width="3"/><circle cx="16" cy="16" r="2.5" fill="#ff6b3d"/></svg><span>Kit de prospection</span><em>Espace équipe</em></div>
+              <div class="carte-b"><div class="carte-t"><div class="carte-nom">${esc(x.nom)}</div><div class="carte-l">Formateur · E2C ${esc(x.siteNom)}</div><div class="carte-l">Code d'accès personnel</div><div class="carte-code">${esc(x.code)}</div><div class="carte-aide">Ne pas partager.</div></div>
+              <div class="carte-qr">${window.kpQR ? window.kpQR(location.origin + "/pilote/?equipe") : ""}</div></div>
+              <div class="carte-f">${esc(location.host)}/pilote</div></div></div>`, "p-cartes"));
+            $("#f-nom", root).value = "";
+          } catch (e) { toast(e.message); }
+        });
+      });
+    } catch (e) { ouvrirDlg(`<p>${esc(e.message)}</p>`); }
+  }
+
+  // =====================================================================
+  // DÉMARRAGE
+  // =====================================================================
+  (async function boot() {
+    const t = ls.get(TK), k = ls.get(KIND);
+    if (!t) return initLogin();
+    try {
+      if (k === "j") startJeune((await api("moi", {})).jeune);
+      else if (k === "s") startEquipe((await api("me-staff", {})).me);
+      else initLogin();
+    } catch (e) { initLogin(); }
+  })();
+})();
