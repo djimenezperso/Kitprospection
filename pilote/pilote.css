@@ -112,3 +112,6 @@ table.sans-site .col-site { display: none; }
   .aff-aide { font-size: 15pt; margin: 0; }
   .aff-url { font-size: 11pt; color: #66728a; margin-top: 8mm; }
 }
+
+.import-lettre { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 10px 0 4px; }
+.import-lettre .file-btn { margin-top: 0; }

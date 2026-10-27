@@ -305,6 +305,141 @@
     if (ta.value.trim() && !confirmer("Remplacer ta lettre par le modèle ?")) return;
     ta.value = modeleLettre(); etatLettre(); planifierSave();
   });
+  // ----- import d'une lettre (Word .docx, PDF, .odt, .txt) : le texte devient le corps de l'e-mail -----
+  async function inflateRaw(u8) {
+    const s = new Blob([u8]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+    return new Uint8Array(await new Response(s).arrayBuffer());
+  }
+  async function zipLire(buf, nom) {
+    const u8 = new Uint8Array(buf), dv = new DataView(buf);
+    let e = u8.length - 22;
+    while (e >= 0 && dv.getUint32(e, true) !== 0x06054b50) e--;
+    if (e < 0) throw new Error("Fichier illisible.");
+    let off = dv.getUint32(e + 16, true);
+    const n = dv.getUint16(e + 10, true);
+    for (let i = 0; i < n; i++) {
+      const meth = dv.getUint16(off + 10, true), csize = dv.getUint32(off + 20, true);
+      const ln = dv.getUint16(off + 28, true), lx = dv.getUint16(off + 30, true), lc = dv.getUint16(off + 32, true);
+      const lo = dv.getUint32(off + 42, true);
+      const name = new TextDecoder().decode(u8.subarray(off + 46, off + 46 + ln));
+      if (name === nom) {
+        const start = lo + 30 + dv.getUint16(lo + 26, true) + dv.getUint16(lo + 28, true);
+        const data = u8.subarray(start, start + csize);
+        return new TextDecoder().decode(meth === 0 ? data : await inflateRaw(data));
+      }
+      off += 46 + ln + lx + lc;
+    }
+    throw new Error("Fichier illisible.");
+  }
+  function texteXml(xml, para, tab, br, esp) {
+    const doc = new DOMParser().parseFromString(xml, "application/xml");
+    const out = [];
+    const walk = (node, acc) => {
+      for (const c of node.childNodes) {
+        if (c.nodeType === 3) acc.push(c.nodeValue);
+        else if (c.nodeType === 1) {
+          if (c.nodeName === tab) acc.push("\t");
+          else if (c.nodeName === br) acc.push("\n");
+          else if (esp && c.nodeName === esp) acc.push(" ".repeat(+c.getAttribute("text:c") || 1));
+          else if (c.nodeName === "w:instrText" || c.nodeName === "w:delText") { /* ignorer */ }
+          else walk(c, acc);
+        }
+      }
+    };
+    for (const p of doc.getElementsByTagName("*")) {
+      if (!para.includes(p.nodeName)) continue;
+      if (p.parentNode && para.includes(p.parentNode.nodeName)) continue;
+      const acc = []; walk(p, acc); out.push(acc.join(""));
+    }
+    return espacerParagraphes(out);
+  }
+  // une ligne vide entre les paragraphes, sauf entre lignes courtes (adresse, signature)
+  function espacerParagraphes(ps) {
+    ps = ps.map((x) => x.replace(/\t+/g, " ").replace(/ {2,}/g, " ").trim());
+    let r = "";
+    ps.forEach((x, i) => {
+      if (i === 0) { r = x; return; }
+      const prev = ps[i - 1];
+      const ensemble = prev && x && prev.length < 50 && x.length < 50;
+      r += (ensemble || !prev || !x ? "\n" : "\n\n") + x;
+    });
+    return r;
+  }
+  let pdfjsP = null;
+  function chargerPdfJs() {
+    if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+    return pdfjsP = pdfjsP || new Promise((ok, ko) => {
+      const sc = document.createElement("script");
+      sc.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+      sc.onload = () => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"; ok(window.pdfjsLib); };
+      sc.onerror = () => ko(new Error("Lecture des PDF indisponible pour le moment. Essaie avec le fichier Word, ou colle le texte."));
+      document.head.appendChild(sc);
+    });
+  }
+  async function textePdf(buf) {
+    const lib = await chargerPdfJs();
+    const pdf = await lib.getDocument({ data: new Uint8Array(buf) }).promise;
+    const lignes = [];
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const tc = await (await pdf.getPage(i)).getTextContent();
+      let cur = null;
+      for (const it of tc.items) {
+        if (!("str" in it)) continue;
+        const y = it.transform[5], hgt = Math.abs(it.transform[3]) || 10;
+        if (!cur || Math.abs(cur.y - y) > hgt * 0.4) { cur = { y, h: hgt, t: "" }; lignes.push(cur); }
+        cur.t += it.str;
+        if (it.hasEOL) cur = null;
+      }
+      lignes.push({ y: null, t: "" });
+    }
+    const out = [];
+    for (let i = 0; i < lignes.length; i++) {
+      const l = lignes[i], prev = lignes[i - 1];
+      if (prev && prev.y != null && l.y != null && prev.y - l.y > Math.max(prev.h, l.h) * 1.8) out.push("");
+      out.push(l.t);
+    }
+    // recoller les lignes coupées d'un même paragraphe
+    const paras = []; let buf2 = "";
+    for (const l of out) {
+      const t = l.replace(/\s+$/, "");
+      if (!t.trim()) { if (buf2) paras.push(buf2); buf2 = ""; paras.push(""); continue; }
+      const court = t.length < 55 || /[,.:;!?]$/.test(t) && t.length < 70;
+      buf2 = buf2 ? (/[-‐]$/.test(buf2) ? buf2.slice(0, -1) + t.trim() : buf2 + " " + t.trim()) : t.trim();
+      if (court) { paras.push(buf2); buf2 = ""; }
+    }
+    if (buf2) paras.push(buf2);
+    return espacerParagraphes(paras);
+  }
+  function nettoyerLettre(t) {
+    return t.replace(/\r/g, "").replace(/\u00a0/g, " ").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n")
+      .replace(/\[[^\]\n]{0,40}(entreprise|soci[ée]t[ée]|structure|enseigne)[^\]\n]{0,40}\]/gi, "[Entreprise]")
+      .replace(/\b(X{3,}|\.{5,}|_{4,})/g, "[Entreprise]").trim();
+  }
+  $("#lettre-input").addEventListener("change", async (ev) => {
+    const f = ev.target.files[0]; ev.target.value = "";
+    if (!f) return;
+    const lab = $("#lettre-label-txt"), txt0 = lab.textContent;
+    if (f.size > 5 * 1024 * 1024) { toast("Fichier trop lourd (5 Mo maximum)."); return; }
+    lab.textContent = "Lecture en cours…";
+    try {
+      const buf = await f.arrayBuffer(), nom = f.name.toLowerCase();
+      let t;
+      if (/\.docx$/.test(nom)) t = texteXml(await zipLire(buf, "word/document.xml"), ["w:p"], "w:tab", "w:br");
+      else if (/\.odt$/.test(nom)) t = texteXml(await zipLire(buf, "content.xml"), ["text:p", "text:h"], "text:tab", "text:line-break", "text:s");
+      else if (/\.pdf$/.test(nom)) t = await textePdf(buf);
+      else if (/\.txt$/.test(nom)) t = new TextDecoder().decode(buf);
+      else if (/\.doc$/.test(nom)) throw new Error("Ancien format Word (.doc) : enregistre ta lettre en .docx ou en PDF, puis réessaie.");
+      else throw new Error("Format non reconnu : Word (.docx), PDF ou texte.");
+      t = nettoyerLettre(t);
+      if (t.length < 40) throw new Error("Je n'arrive pas à lire le texte de ce fichier (lettre scannée ?). Essaie avec le fichier Word, ou colle le texte.");
+      const ta = $("#p-lettre");
+      ta.value = t; etatLettre(); await sauver();
+      toast(/\[Entreprise\]/.test(t) ? "Lettre importée ✓ Vérifie le texte." : "Lettre importée ✓ Vérifie le texte et ajoute [Entreprise] là où va le nom de l'entreprise.");
+      ta.scrollIntoView({ behavior: "smooth", block: "center" });
+    } catch (e) { toast(e.message); }
+    finally { lab.textContent = txt0; }
+  });
+
   function modeleLettre() {
     const f = J.genre === "F";
     return `Madame, Monsieur,
