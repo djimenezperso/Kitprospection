@@ -125,7 +125,14 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
           <h2>Ma lettre de motivation</h2>
           <span class="tag" id="lettre-etat"></span>
         </div>
-        <p class="muted" style="margin-top:4px">Colle ici la lettre travaillée avec ton formateur. Elle sera le texte de ton e-mail.
+        <div class="import-lettre">
+          <label class="btn primary file-btn">
+            <input type="file" id="lettre-input" accept=".docx,.pdf,.odt,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text,text/plain">
+            <span id="lettre-label-txt">Importer ma lettre (Word ou PDF)</span>
+          </label>
+          <span class="muted sm">ou colle-la directement ci-dessous.</span>
+        </div>
+        <p class="muted" style="margin-top:4px">Ta lettre travaillée avec ton formateur sera le texte de ton e-mail.
           Là où doit apparaître le nom de l'entreprise, écris <b>[Entreprise]</b> : l'outil le remplacera tout seul.</p>
         <label>Objet de l'e-mail
           <input id="p-objet" maxlength="200">
