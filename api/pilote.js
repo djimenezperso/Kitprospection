@@ -146,6 +146,25 @@ async function loadJeune(site, key) {
 }
 const saveJeune = (j) => store.putJSON(jeunePath(j.site, j.key), j);
 
+// Variantes acceptées pour un prénom ou un nom composé : le tout collé, chaque mot,
+// et les débuts (« boisnoir » et « boisnoirgonzaga » pour « Boisnoir Gonzaga »).
+function variantes(txt) {
+  const mots = norm(txt).split(/[\s\-']+/).map(simple).filter(Boolean);
+  const v = new Set(mots);
+  for (let i = 1; i <= mots.length; i++) v.add(mots.slice(0, i).join(""));
+  v.add(simple(txt));
+  return v;
+}
+async function rechercheTolerante(site, p, n) {
+  const paths = (await store.list(`jeunes/${site}/`)).filter((x) => x.endsWith(".json"));
+  const recs = (await Promise.all(paths.map((x) => store.getJSON(x)))).filter(Boolean);
+  const trouve = (pp, nn) => recs.filter((j) => variantes(j.prenom).has(pp) && variantes(j.nom).has(nn));
+  let c = trouve(p, n);
+  if (!c.length) c = trouve(n, p); // nom.prénom
+  if (c.length > 1) fail(401, "Plusieurs jeunes correspondent : écris ton prénom et ton nom en entier (ex. " + c[0].ident + ").");
+  return c[0] || null;
+}
+
 // ---------- handler ----------
 async function body(req) {
   if (req.body && typeof req.body === "object") return req.body;
@@ -182,9 +201,13 @@ const actions = {
   async "login-jeune"(req, b) {
     const site = String(b.site || "");
     if (!SITES[site]) fail(400, "Choisis ton site.");
-    const ident = normIdent(b.ident);
-    if (ident.indexOf(".") < 1) fail(400, "Écris ton identifiant sous la forme prénom.nom");
-    const j = await store.getJSON(jeunePath(site, jeuneKey(site, ident)));
+    // « prénom.nom », ou « prénom nom » ; tolère un seul prénom / un seul mot du nom
+    const brut = norm(b.ident).replace(/@.*$/, "");
+    let [p, ...n] = brut.includes(".") ? brut.split(".") : brut.split(" ");
+    p = simple(p); n = simple(n.join(""));
+    if (!p || !n) fail(400, "Écris ton identifiant sous la forme prénom.nom");
+    let j = await store.getJSON(jeunePath(site, jeuneKey(site, p + "." + n)));
+    if (!j) j = await rechercheTolerante(site, p, n);
     if (!j) { await sleep(500); fail(401, "Identifiant inconnu sur ce site. Vérifie le site et l'orthographe, ou demande à ton formateur."); }
     const key = j.key;
     j.vu = now(); await saveJeune(j);
