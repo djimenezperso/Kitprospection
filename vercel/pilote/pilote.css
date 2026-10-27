@@ -50,6 +50,10 @@
 .rappel-q span { font-size: .88rem; color: var(--ink-2); }
 .rq-liens { display: flex; gap: 8px; flex-wrap: wrap; }
 
+.filtres { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 14px; }
+.filtres input { flex: 1 1 220px; border: 1px solid var(--line); background: #fcfbf8; border-radius: 10px; padding: 11px 12px; min-height: 44px; }
+.filtres select { width: auto; }
+.filtres select { flex: 0 1 220px; }
 .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 14px; }
 table.clic tbody tr { cursor: pointer; }
 table.clic tbody tr:hover td, table.clic tbody tr:focus td { background: var(--soft); }

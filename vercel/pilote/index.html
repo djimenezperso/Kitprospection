@@ -28,6 +28,7 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
     </a>
     <div class="who" id="who" hidden>
       <span id="who-txt"></span>
+      <button class="btn ghost sm" id="btn-moncode" type="button" hidden>Changer mon code</button>
       <button class="btn ghost sm" id="btn-logout" type="button">Se déconnecter</button>
     </div>
   </div>
@@ -216,6 +217,11 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
       <button class="btn ghost" type="button" id="btn-export">Export Excel</button>
     </div>
     <div class="card">
+      <div class="filtres">
+        <input type="search" id="f-q" placeholder="Rechercher un jeune, un groupe…" aria-label="Rechercher">
+        <select id="f-groupe" aria-label="Groupe"><option value="">Tous les groupes</option></select>
+        <select id="f-form" aria-label="Formateur référent"><option value="">Tous les formateurs</option></select>
+      </div>
       <div class="kpis">
         <div class="kpi"><b id="c-jeunes">0</b><span>jeunes</span></div>
         <div class="kpi"><b id="c-env">0</b><span>candidatures envoyées</span></div>

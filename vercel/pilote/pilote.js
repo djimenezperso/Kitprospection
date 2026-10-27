@@ -140,6 +140,7 @@
   function vue(n) {
     VUES.forEach((v) => { $("#v-" + v).hidden = v !== n; });
     $("#who").hidden = n === "login";
+    $("#btn-moncode").hidden = n !== "equipe";
     window.scrollTo({ top: 0 });
   }
   function logout(msg) {
@@ -553,7 +554,7 @@ ${nomComplet()}`;
   const siteCourant = () => (E.site === "tous" ? (ME.sites.length === 1 ? ME.sites[0][0] : null) : E.site);
 
   function startEquipe(me) {
-    ME = me;
+    ME = me; E.filtreInit = false;
     vue("equipe");
     $("#who-txt").textContent = `${ME.nom} · ${ME.roleNom}`;
     $("#e-titre").textContent = ME.sites.length > 1 ? "Les sites en un coup d'œil." : `E2C ${ME.sites[0][1]} : le groupe en un coup d'œil.`;
@@ -571,20 +572,42 @@ ${nomComplet()}`;
     $("#c-table tbody").innerHTML = `<tr><td colspan="8" class="muted">Chargement…</td></tr>`;
     try {
       const r = await api("jeunes", E.site === "tous" ? {} : { site: E.site }, { get: true });
-      E.jeunes = r.jeunes; renderEquipe();
+      E.jeunes = r.jeunes; remplirFiltres(); renderEquipe();
     } catch (e) { $("#c-table tbody").innerHTML = `<tr><td colspan="8">${esc(e.message)}</td></tr>`; }
   }
+  const normTxt = (x) => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+  const memeNom = (a, b) => { const k = (x) => normTxt(x).split(/[ -]/).filter(Boolean).sort().join(" "); return !!a && k(a) === k(b); };
+  function remplirFiltres() {
+    const g = $("#f-groupe"), f = $("#f-form"), gv = g.value, fv = f.value;
+    const groupes = [...new Set(E.jeunes.map((j) => (j.groupe || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "fr", { numeric: true }));
+    const forms = [...new Set(E.jeunes.map((j) => (j.formateur || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "fr"));
+    g.innerHTML = `<option value="">Tous les groupes</option>` + groupes.map((x) => `<option${x === gv ? " selected" : ""}>${esc(x)}</option>`).join("");
+    f.innerHTML = `<option value="">Tous les formateurs</option>` + forms.map((x) => `<option${x === fv ? " selected" : ""}>${esc(x)}</option>`).join("");
+    if (!E.filtreInit && ME.role === "formateur") { // un formateur voit d'abord ses jeunes
+      const mien = forms.find((x) => memeNom(x, ME.nom));
+      if (mien) f.value = mien;
+      E.filtreInit = true;
+    }
+  }
+  ["#f-q", "#f-groupe", "#f-form"].forEach((sel) => $(sel).addEventListener("input", () => renderEquipe()));
+  function jeunesFiltres() {
+    const q = normTxt($("#f-q").value), g = $("#f-groupe").value, f = $("#f-form").value;
+    return E.jeunes.filter((j) => (!g || (j.groupe || "").trim() === g) && (!f || (j.formateur || "").trim() === f)
+      && (!q || normTxt(`${j.prenom} ${j.nom} ${j.ident} ${j.groupe} ${j.formateur} ${j.code}`).includes(q)));
+  }
   function renderEquipe() {
-    const js = E.jeunes, multi = E.site === "tous" && ME.sites.length > 1;
+    const js = jeunesFiltres(), multi = E.site === "tous" && ME.sites.length > 1;
     const sum = (k) => js.reduce((a, j) => a + j[k], 0);
     $("#c-jeunes").textContent = js.length; $("#c-env").textContent = sum("envois"); $("#c-rep").textContent = sum("reponses"); $("#c-rel").textContent = sum("aRelancer");
     $("#c-table").classList.toggle("sans-site", !multi);
     $("#c-vide").hidden = js.length > 0; $("#c-table").hidden = js.length === 0;
+    $("#c-vide p").textContent = E.jeunes.length ? "Aucun jeune ne correspond à ces filtres." : "Aucun jeune pour le moment. Cliquez sur « + Ajouter des jeunes ».";
     const sans = js.filter((j) => j.envois === 0);
     $("#c-alerte").hidden = !sans.length || !js.length;
     $("#c-alerte").textContent = sans.length === js.length ? "Personne n'a encore envoyé de candidature." : `Pas encore d'envoi : ${sans.map((j) => j.prenom + " " + (j.nom || "").slice(0, 1) + ".").join(", ")} — un coup de main peut être utile.`;
+    E.vus = js;
     $("#c-table tbody").innerHTML = js.map((j, i) => `<tr data-i="${i}" tabindex="0" class="${j.envois === 0 ? "flag" : ""}">
-      <td><b>${esc(j.prenom)} ${esc(j.nom)}</b><br><span class="muted sm">${esc(j.ident)}${j.formateur ? " · " + esc(j.formateur) : ""}</span></td>
+      <td><b>${esc(j.prenom)} ${esc(j.nom)}</b><br><span class="muted sm">${esc(j.ident)}${j.groupe ? " · gr. " + esc(j.groupe) : ""}${j.formateur ? " · " + esc(j.formateur) : ""}</span></td>
       <td class="col-site">${esc(SITES[j.site])}</td>
       <td>${esc(metierLabel(j.metier) || "—")}</td>
       <td class="nowrap"><span class="tag ${j.cv ? "ok" : "bad"}">CV</span> <span class="tag ${j.lettre ? "ok" : "bad"}">Lettre</span></td>
@@ -592,7 +615,7 @@ ${nomComplet()}`;
       <td class="num">${j.envois === 0 ? `<span class="tag bad">Aucun envoi</span>` : j.aRelancer ? `<span class="tag warn">${j.aRelancer}</span>` : "0"}</td>
       <td class="sm">${quand(j.derniere)}</td></tr>`).join("");
     $$("#c-table tbody tr[data-i]").forEach((tr) => {
-      const go = () => ouvrirJeune(E.jeunes[+tr.dataset.i]);
+      const go = () => ouvrirJeune(E.vus[+tr.dataset.i]);
       tr.addEventListener("click", go); tr.addEventListener("keydown", (ev) => { if (ev.key === "Enter") go(); });
     });
   }
@@ -720,10 +743,10 @@ ${nomComplet()}`;
     imprimer(`<div class="cartes">${liste.map(carteHtml).join("")}</div>`, "p-cartes");
   }
   $("#btn-cartes").addEventListener("click", () => {
-    const js = E.jeunes;
+    const js = jeunesFiltres();
     if (!js.length) { toast("Ajoutez d'abord des jeunes."); return; }
     ouvrirDlg(`<h2>Cartes à imprimer</h2>
-      <p class="muted">Une carte par jeune (format carte de visite, 10 par page A4), avec son identifiant et le QR code de son site.</p>
+      <p class="muted">Une carte par jeune (format carte de visite, 10 par page A4), avec son identifiant et le QR code de son site. La liste suit les filtres choisis (groupe, formateur).</p>
       <div class="check-list">${js.map((j, i) => `<label class="check"><input type="checkbox" data-c="${i}" checked> ${esc(j.prenom)} ${esc(j.nom)} <span class="muted sm">(${esc(SITES[j.site])})</span></label>`).join("")}</div>
       <div class="row-btns"><button class="btn ghost sm" type="button" id="c-none">Tout décocher</button><button class="btn primary" type="button" id="c-go">Imprimer</button></div>`, (root) => {
       $("#c-none", root).addEventListener("click", () => $$("[data-c]", root).forEach((c) => { c.checked = false; }));
@@ -767,10 +790,10 @@ ${nomComplet()}`;
     try {
       const r = await api("formateurs", null, { get: true });
       ouvrirDlg(`<h2>Équipe et accès</h2>
-        <p class="muted">Chaque formateur a son code personnel : il voit tous les jeunes de son site. Le code n'est affiché qu'une fois, à la création.</p>
+        <p class="muted">Chaque formateur a son code personnel : il voit tous les jeunes de son site. Un code oublié ? « Nouveau code » en crée un autre (l'ancien ne marche plus). Chacun peut aussi choisir son propre code avec « Changer mon code », en haut de la page.</p>
         <div class="table-wrap"><table><thead><tr><th>Nom</th><th>Rôle</th><th>Site</th><th></th></tr></thead><tbody>
-        ${r.equipe.map((m) => `<tr><td><b>${esc(m.nom)}</b></td><td>${esc(m.roleNom)}</td><td>${m.site ? esc(SITES[m.site]) : "Tous"}</td>
-          <td>${m.fixe ? "" : `<button class="btn ghost sm danger" type="button" data-del="${esc(m.id)}">Désactiver</button>`}</td></tr>`).join("")}
+        ${r.equipe.map((m) => `<tr><td><b>${esc(m.nom)}</b>${m.moi ? ` <span class="tag blue">vous</span>` : ""}</td><td>${esc(m.roleNom)}</td><td>${m.site ? esc(SITES[m.site]) : "Tous"}</td>
+          <td class="nowrap">${m.gerable ? `<button class="btn ghost sm" type="button" data-reset="${esc(m.id)}">Nouveau code</button> <button class="btn ghost sm danger" type="button" data-del="${esc(m.id)}">Désactiver</button>` : ""}</td></tr>`).join("")}
         </tbody></table></div>
         <h3 class="mt">Ajouter un formateur</h3>
         <div class="add-form">
@@ -779,6 +802,10 @@ ${nomComplet()}`;
           <button class="btn primary" type="button" id="f-ok">Créer son accès</button>
         </div>
         <div id="f-res"></div>`, (root) => {
+        $$("[data-reset]", root).forEach((b) => b.addEventListener("click", async () => {
+          if (!confirmer("Créer un nouveau code ? L'ancien ne marchera plus.")) return;
+          try { const x = await api("reset-code", { id: b.dataset.reset }); afficherCode(root, x); } catch (e) { toast(e.message); }
+        }));
         $$("[data-del]", root).forEach((b) => b.addEventListener("click", async () => {
           if (!confirmer("Désactiver cet accès ?")) return;
           try { await api("suppr-formateur", { id: b.dataset.del }); toast("Accès désactivé."); ouvrirEquipe(); } catch (e) { toast(e.message); }
@@ -788,20 +815,48 @@ ${nomComplet()}`;
           if (!nom) { toast("Indiquez le nom."); return; }
           try {
             const x = (await api("ajout-formateur", { nom, site: $("#f-site", root).value })).formateur;
-            $("#f-res", root).innerHTML = `<div class="rappel-ok"><b>Accès créé pour ${esc(x.nom)} (${esc(x.siteNom)}).</b><br>Son code : <span class="code-big">${esc(x.code)}</span><br>
-              <span class="sm">Notez-le ou imprimez sa carte maintenant : il ne sera plus affiché.</span><br>
-              <button class="btn dark sm" type="button" id="f-print">Imprimer sa carte d'accès</button></div>`;
-            $("#f-print", root).addEventListener("click", () => imprimer(`<div class="cartes"><div class="carte">
-              <div class="carte-h"><svg viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#152238"/><circle cx="16" cy="16" r="8" fill="none" stroke="#ff6b3d" stroke-width="3"/><circle cx="16" cy="16" r="2.5" fill="#ff6b3d"/></svg><span>Kit de prospection</span><em>Espace équipe</em></div>
-              <div class="carte-b"><div class="carte-t"><div class="carte-nom">${esc(x.nom)}</div><div class="carte-l">Formateur · E2C ${esc(x.siteNom)}</div><div class="carte-l">Code d'accès personnel</div><div class="carte-code">${esc(x.code)}</div><div class="carte-aide">Ne pas partager.</div></div>
-              <div class="carte-qr">${window.kpQR ? window.kpQR(location.origin + "/pilote/?equipe") : ""}</div></div>
-              <div class="carte-f">${esc(location.host)}/pilote</div></div></div>`, "p-cartes"));
+            afficherCode(root, { ...x, roleNom: "Formateur" }, true);
             $("#f-nom", root).value = "";
           } catch (e) { toast(e.message); }
         });
       });
     } catch (e) { ouvrirDlg(`<p>${esc(e.message)}</p>`); }
   }
+
+  function afficherCode(root, x, cree) {
+    $("#f-res", root).innerHTML = `<div class="rappel-ok"><b>${cree ? "Accès créé" : "Nouveau code"} pour ${esc(x.nom)}.</b><br>Code : <span class="code-big">${esc(x.code)}</span><br>
+      <span class="sm">Notez-le ou imprimez sa carte maintenant : il ne sera plus affiché. ${cree ? "" : "L'ancien code ne marche plus."}</span><br>
+      <button class="btn dark sm" type="button" id="f-print">Imprimer sa carte d'accès</button></div>`;
+    $("#f-res", root).scrollIntoView({ behavior: "smooth", block: "nearest" });
+    $("#f-print", root).addEventListener("click", () => imprimer(`<div class="cartes"><div class="carte">
+      <div class="carte-h"><svg viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#152238"/><circle cx="16" cy="16" r="8" fill="none" stroke="#ff6b3d" stroke-width="3"/><circle cx="16" cy="16" r="2.5" fill="#ff6b3d"/></svg><span>Kit de prospection</span><em>${x.site ? "E2C " + esc(SITES[x.site]) : "E2C 92"}</em></div>
+      <div class="carte-b"><div class="carte-t"><div class="carte-nom">${esc(x.nom)}</div><div class="carte-l">${esc(x.roleNom || "")}</div><div class="carte-l">Code d'accès personnel</div><div class="carte-code">${esc(x.code)}</div><div class="carte-aide">Espace équipe. Ne pas partager.</div></div>
+      <div class="carte-qr">${window.kpQR ? window.kpQR(location.origin + "/pilote/?equipe") : ""}</div></div>
+      <div class="carte-f">${esc(location.host)}/pilote</div></div></div>`, "p-cartes"));
+  }
+
+  // ----- changer mon code -----
+  $("#btn-moncode").addEventListener("click", () => {
+    ouvrirDlg(`<h2>Changer mon code d'accès</h2>
+      <p class="muted">Choisissez un code facile à retenir pour vous, mais difficile à deviner : au moins 8 lettres ou chiffres. Les majuscules, espaces et tirets ne comptent pas.</p>
+      <label>Nouveau code <input id="m-c1" autocomplete="new-password" spellcheck="false"></label>
+      <label>Confirmer le nouveau code <input id="m-c2" autocomplete="new-password" spellcheck="false"></label>
+      <button class="btn primary" type="button" id="m-ok">Enregistrer mon nouveau code</button>
+      <p class="form-err" id="m-err" hidden></p>`, (root) => {
+      $("#m-ok", root).addEventListener("click", async () => {
+        const a = $("#m-c1", root).value, b = $("#m-c2", root).value, err = $("#m-err", root);
+        err.hidden = true;
+        const n = (s) => s.toUpperCase().replace(/[^A-Z0-9]/g, "");
+        if (n(a).length < 8) { err.textContent = "Au moins 8 lettres ou chiffres."; err.hidden = false; return; }
+        if (n(a) !== n(b)) { err.textContent = "Les deux codes ne sont pas identiques."; err.hidden = false; return; }
+        try {
+          const r = await api("mon-code", { nouveau: a });
+          ls.set(TK, r.token);
+          dlg.close(); toast("Code modifié ✓ Utilisez-le à votre prochaine connexion.");
+        } catch (e) { err.textContent = e.message; err.hidden = false; }
+      });
+    });
+  });
 
   // =====================================================================
   // DÉMARRAGE
