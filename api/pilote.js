@@ -50,12 +50,46 @@ const fail = (status, msg) => { throw new HttpError(status, msg); };
 function seedStaff() {
   try { return JSON.parse(process.env.STAFF_SEED || "[]"); } catch (e) { return []; }
 }
+// Comptes fixes (STAFF_SEED) et comptes en stockage (staff/<empreinte>.json).
+// Un compte fixe dont le code a été changé ou qui a été désactivé a un marqueur remplace/<id>.json.
+const marqueur = (id) => store.getJSON(`remplace/${id}.json`);
+const estFixe = (id) => seedStaff().some((x) => x.id === id);
 async function findStaffByCode(code) {
   const h = sha(normCode(code));
-  const seed = seedStaff().find((s) => s.hash === h);
-  if (seed) return { ...seed, id: seed.id || h.slice(0, 16), source: "seed" };
   const rec = await store.getJSON(`staff/${h}.json`);
-  return rec ? { ...rec, source: "blob" } : null;
+  if (rec) return { ...rec, source: "blob" };
+  const seed = seedStaff().find((s) => s.hash === h);
+  if (seed && !(await marqueur(seed.id))) return { ...seed, source: "seed" };
+  return null;
+}
+async function fichiersStaff() {
+  const paths = (await store.list("staff/")).filter((p) => p.endsWith(".json"));
+  const recs = await Promise.all(paths.map((p) => store.getJSON(p)));
+  return paths.map((p, i) => ({ p, rec: recs[i] })).filter((x) => x.rec);
+}
+async function membre(id) {
+  const f = (await fichiersStaff()).find((x) => x.rec.id === id);
+  if (f) return f.rec;
+  const sd = seedStaff().find((x) => x.id === id);
+  if (sd && !((await marqueur(id)) || {}).desactive) return sd;
+  return null;
+}
+function peutGerer(me, m) {
+  if (!m || m.id === me.id) return false;
+  if (me.role === "admin") return true;
+  if (me.role === "global") return m.role !== "admin";
+  if (me.role === "responsable") return m.role === "formateur" && m.site === me.site;
+  return false;
+}
+async function poserCode(m, code) {
+  const n = normCode(code);
+  if (n.length < 8) fail(400, "Le code doit contenir au moins 8 lettres ou chiffres.");
+  const h = sha(n);
+  if (seedStaff().some((x) => x.hash === h) || (await store.getJSON(`staff/${h}.json`))) fail(400, "Ce code n'est pas disponible. Choisissez-en un autre.");
+  for (const f of await fichiersStaff()) if (f.rec.id === m.id) await store.remove(f.p);
+  await store.putJSON(`staff/${h}.json`, { id: m.id, nom: m.nom, role: m.role, site: m.site || "", fixe: estFixe(m.id), cree: m.cree || now(), maj: now() });
+  if (estFixe(m.id)) await store.putJSON(`remplace/${m.id}.json`, { date: now() });
+  return h;
 }
 const sitesVisibles = (me) => (me.role === "admin" || me.role === "global") ? Object.keys(SITES) : [me.site];
 const peutGererFormateurs = (me) => ["admin", "global", "responsable"].includes(me.role);
@@ -89,7 +123,7 @@ function resume(j) {
   const aRelancer = env.filter((e) => e.statut === "Envoyé" && e.relance && e.relance <= t).length;
   const reponses = env.filter((e) => !["Envoyé", "Relancé"].includes(e.statut)).length;
   return {
-    key: j.key, site: j.site, prenom: j.prenom, nom: j.nom, ident: j.ident, code: j.code || "", formateur: j.formateur || "",
+    key: j.key, site: j.site, prenom: j.prenom, nom: j.nom, ident: j.ident, code: j.code || "", groupe: j.groupe || "", formateur: j.formateur || "",
     metier: j.metier || "", typ: j.typ || "", cv: !!j.cv, lettre: !!(j.lettre && j.lettre.trim()),
     envois: env.length, relances: env.filter((e) => e.relanceFaite || e.statut === "Relancé").length,
     reponses, entretiens: env.filter((e) => e.statut === "Entretien obtenu").length,
@@ -125,10 +159,10 @@ function auth(req) {
 function needJeune(s) { if (!s || s.k !== "j") fail(401, "Session expirée. Reconnecte-toi."); return s; }
 async function needStaff(s) {
   if (!s || s.k !== "s") fail(401, "Session expirée. Reconnectez-vous.");
-  if (s.src === "blob") { // formateur supprimé → accès coupé
+  if (s.src === "blob") { // code changé ou accès désactivé → session coupée
     const rec = await store.getJSON(`staff/${s.h}.json`);
-    if (!rec) fail(401, "Accès désactivé.");
-  }
+    if (!rec || rec.id !== s.id) fail(401, "Votre code d'accès a changé ou a été désactivé. Reconnectez-vous.");
+  } else if (await marqueur(s.id)) fail(401, "Votre code d'accès a changé ou a été désactivé. Reconnectez-vous.");
   return s;
 }
 function needSite(me, site) {
@@ -275,7 +309,7 @@ const actions = {
       const key = jeuneKey(b.site, ident);
       const deja = await store.getJSON(jeunePath(b.site, key));
       if (deja) { existants.push(`${deja.prenom} ${deja.nom}`); continue; }
-      const j = { key, site: b.site, prenom, nom, ident, code, formateur: clean(b.formateur || l.formateur, 80),
+      const j = { key, site: b.site, prenom, nom, ident, code, groupe: clean(l.groupe, 40), formateur: clean(b.formateur || l.formateur, 80),
         envois: [], cree: now(), creePar: me.nom };
       await saveJeune(j);
       crees.push({ prenom, nom, ident, code, site: b.site });
@@ -303,13 +337,15 @@ const actions = {
   async formateurs(req, b, s) {
     const me = await needStaff(s);
     const sites = sitesVisibles(me);
-    const seed = seedStaff().filter((x) => x.role !== "admin" && (x.role === "global" || sites.includes(x.site)))
-      .map((x) => ({ nom: x.nom, role: x.role, roleNom: ROLES[x.role], site: x.site || "", fixe: true }));
-    const paths = (await store.list("staff/")).filter((p) => p.endsWith(".json"));
-    const recs = (await Promise.all(paths.map((p) => store.getJSON(p)))).filter(Boolean)
-      .filter((x) => sites.includes(x.site))
-      .map((x) => ({ id: x.id, nom: x.nom, role: x.role, roleNom: ROLES[x.role], site: x.site, cree: x.cree, fixe: false }));
-    return { equipe: [...seed, ...recs] };
+    const visible = (x) => x.role !== "admin" && (x.role === "global" || sites.includes(x.site));
+    const fichiers = (await fichiersStaff()).map((f) => f.rec);
+    const ids = new Set(fichiers.map((x) => x.id));
+    const marq = await Promise.all(seedStaff().map((x) => marqueur(x.id)));
+    const seed = seedStaff().filter((x, i) => !ids.has(x.id) && !(marq[i] || {}).desactive);
+    const tous = [...seed, ...fichiers].filter(visible);
+    const ordre = { global: 0, responsable: 1, formateur: 2 };
+    tous.sort((a, b) => (ordre[a.role] - ordre[b.role]) || (a.site || "").localeCompare(b.site || "") || a.nom.localeCompare(b.nom));
+    return { equipe: tous.map((x) => ({ id: x.id, nom: x.nom, role: x.role, roleNom: ROLES[x.role], site: x.site || "", moi: x.id === me.id, gerable: peutGerer(me, x) })) };
   },
   async "ajout-formateur"(req, b, s) {
     const me = await needStaff(s);
@@ -325,13 +361,29 @@ const actions = {
   },
   async "suppr-formateur"(req, b, s) {
     const me = await needStaff(s);
-    if (!peutGererFormateurs(me)) fail(403, "Réservé aux responsables.");
-    const paths = (await store.list("staff/")).filter((p) => p.endsWith(".json"));
-    for (const p of paths) {
-      const r = await store.getJSON(p);
-      if (r && r.id === b.id) { needSite(me, r.site); await store.remove(p); return { ok: true }; }
-    }
-    fail(404, "Formateur introuvable.");
+    const m = await membre(String(b.id || ""));
+    if (!m) fail(404, "Compte introuvable.");
+    if (!peutGerer(me, m)) fail(403, "Vous ne pouvez pas désactiver ce compte.");
+    for (const f of await fichiersStaff()) if (f.rec.id === m.id) await store.remove(f.p);
+    if (estFixe(m.id)) await store.putJSON(`remplace/${m.id}.json`, { date: now(), desactive: true, par: me.nom });
+    return { ok: true };
+  },
+  async "mon-code"(req, b, s) {
+    const me = await needStaff(s);
+    const m = await membre(me.id);
+    if (!m) fail(401, "Compte introuvable.");
+    const h = await poserCode(m, b.nouveau);
+    const token = sign({ k: "s", id: m.id, nom: m.nom, role: m.role, site: m.site || "", src: "blob", h, exp: Date.now() + 14 * 24 * 3600 * 1000 });
+    return { ok: true, token };
+  },
+  async "reset-code"(req, b, s) {
+    const me = await needStaff(s);
+    const m = await membre(String(b.id || ""));
+    if (!m) fail(404, "Compte introuvable.");
+    if (!peutGerer(me, m)) fail(403, "Vous ne pouvez pas modifier ce compte.");
+    const code = genCode((m.site || "e2c").slice(0, 3).toUpperCase());
+    await poserCode(m, code);
+    return { nom: m.nom, site: m.site, siteNom: SITES[m.site] || "Tous les sites", roleNom: ROLES[m.role], code };
   },
 };
 
@@ -381,15 +433,15 @@ async function exporter(req, res, s) {
     const sum = (i) => t.reduce((a, r) => a + r[i], 0);
     synth.push(["Total", sum(1), sum(2), sum(3), sum(1) ? Math.round((sum(3) / sum(1)) * 10) / 10 : 0, sum(5), sum(6), sum(7), sum(8)]);
   }
-  const jeunes = [["Site", "Prénom", "Nom", "Identifiant", "Code E2C", "Formateur", "Métier", "Recherche", "CV déposé", "Lettre prête", "Candidatures", "Relances", "Réponses", "Entretiens", "Trouvé", "À relancer", "Dernière connexion"]];
-  R.forEach(([j, r]) => jeunes.push([SITES[j.site], j.prenom, j.nom, j.ident, j.code || "", j.formateur || "", METIER_NOMS[j.metier] || "", j.typ || "",
+  const jeunes = [["Site", "Groupe", "Prénom", "Nom", "Identifiant", "Code E2C", "Formateur", "Métier", "Recherche", "CV déposé", "Lettre prête", "Candidatures", "Relances", "Réponses", "Entretiens", "Trouvé", "À relancer", "Dernière connexion"]];
+  R.forEach(([j, r]) => jeunes.push([SITES[j.site], j.groupe || "", j.prenom, j.nom, j.ident, j.code || "", j.formateur || "", METIER_NOMS[j.metier] || "", j.typ || "",
     r.cv ? "Oui" : "Non", r.lettre ? "Oui" : "Non", r.envois, r.relances, r.reponses, r.entretiens, r.pris, r.aRelancer, frDate((j.vu || "").slice(0, 10))]));
   const cands = [["Site", "Jeune", "Entreprise", "Ville", "SIRET", "Envoyée le", "Relance prévue le", "Relancée le", "Statut"]];
   R.forEach(([j]) => (j.envois || []).forEach((e) => cands.push([SITES[j.site], `${j.prenom} ${j.nom}`, e.entreprise, e.ville, e.siret,
     frDate(e.envoye), frDate(e.relance), frDate(e.relanceFaite), e.statut])));
   const buf = require("../lib/xlsx").workbook([
     { name: "Synthèse", rows: synth, widths: [14, 9, 22, 14, 12, 12, 10, 11, 16] },
-    { name: "Jeunes", rows: jeunes, widths: [11, 14, 16, 22, 12, 18, 22, 11, 10, 11, 12, 9, 9, 10, 8, 10, 16] },
+    { name: "Jeunes", rows: jeunes, widths: [11, 12, 14, 16, 22, 12, 20, 22, 11, 10, 11, 12, 9, 9, 10, 8, 10, 16] },
     { name: "Candidatures", rows: cands, widths: [11, 22, 30, 16, 16, 12, 15, 12, 16] },
   ]);
   const nom = `kit-prospection-${sites.length > 1 ? "e2c92" : sites[0]}-${todayParis()}.xlsx`;
