@@ -699,7 +699,8 @@ ${nomComplet()}`;
     const nav = $("#e-sites");
     nav.hidden = ME.sites.length < 2;
     nav.innerHTML = (ME.sites.length > 1 ? `<button data-site="tous" class="on">Tous les sites</button>` : "") + ME.sites.map(([v, l]) => `<button data-site="${v}">${l}</button>`).join("");
-    $$("button", nav).forEach((b) => b.addEventListener("click", () => { E.site = b.dataset.site; $$("button", nav).forEach((x) => x.classList.toggle("on", x === b)); chargerJeunes(); }));
+    $$("button", nav).forEach((b) => b.addEventListener("click", () => { E.site = b.dataset.site; $$("button", nav).forEach((x) => x.classList.toggle("on", x === b)); $("#st-groupe").value = ""; chargerJeunes(); if (E.vue === "stats") chargerStats(); }));
+    montrerVue("liste");
     chargerJeunes();
   }
 
@@ -753,6 +754,100 @@ ${nomComplet()}`;
       const go = () => ouvrirJeune(E.vus[+tr.dataset.i]);
       tr.addEventListener("click", go); tr.addEventListener("keydown", (ev) => { if (ev.key === "Enter") go(); });
     });
+  }
+
+  // ----- statistiques -----
+  E.vue = "liste";
+  $$(".vues button").forEach((b) => b.addEventListener("click", () => montrerVue(b.dataset.vue)));
+  function montrerVue(v) {
+    E.vue = v;
+    $$(".vues button").forEach((b) => { b.classList.toggle("on", b.dataset.vue === v); b.setAttribute("aria-selected", String(b.dataset.vue === v)); });
+    $("#e-liste").hidden = v !== "liste"; $("#e-stats").hidden = v !== "stats";
+    if (v === "stats") chargerStats();
+  }
+  $("#st-groupe").addEventListener("change", () => chargerStats());
+  $("#st-export").addEventListener("click", () => $("#btn-export").click());
+  async function chargerStats() {
+    const body = $("#st-body");
+    body.innerHTML = `<div class="card empty small"><p>Calcul des statistiques…</p></div>`;
+    try {
+      const q = {}; if (E.site !== "tous") q.site = E.site; if ($("#st-groupe").value) q.groupe = $("#st-groupe").value;
+      const r = await api("stats", q, { get: true });
+      remplirGroupesStats();
+      renderStats(r.stats, E.site === "tous" && ME.sites.length > 1);
+    } catch (e) { body.innerHTML = `<div class="card alert">${esc(e.message)}</div>`; }
+  }
+  function remplirGroupesStats() {
+    const sel = $("#st-groupe"), v = sel.value;
+    const gs = [...new Set(E.jeunes.map((j) => (j.groupe || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "fr", { numeric: true }));
+    sel.innerHTML = `<option value="">Tous les groupes</option>` + gs.map((g) => `<option${g === v ? " selected" : ""}>${esc(g)}</option>`).join("");
+    sel.hidden = gs.length < 2;
+  }
+  const P = (x) => (x == null ? "—" : x + " %");
+  const JRS = (x) => (x == null ? "—" : x + (x === 1 ? " jour" : " jours"));
+  function tile(val, label, part, total, sous) {
+    const pc = total ? Math.round((part / total) * 100) : null;
+    return `<div class="tile"><b>${val}${sous ? `<small>${sous}</small>` : ""}</b><span>${label}</span>${pc != null ? `<div class="jauge" role="img" aria-label="${pc} %"><i style="width:${pc}%"></i></div>` : ""}</div>`;
+  }
+  function barres(titre, sous, data, cle, couleur, unite) {
+    const max = Math.max(1, ...data.map((d) => d[cle]));
+    const iMax = data.reduce((m, d, i) => (d[cle] > data[m][cle] ? i : m), 0), last = data.length - 1;
+    const lab = (d) => new Date(d.semaine + "T12:00:00").toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
+    return `<div class="chart"><h3>${titre}</h3><p class="muted">${sous}</p>
+      <div class="bars">${data.map((d, i) => `<div class="bar" tabindex="0" aria-label="Semaine du ${lab(d)} : ${d[cle]} ${unite}">
+        ${(i === iMax || i === last) && d[cle] ? `<em style="bottom:${(d[cle] / max) * 100}%">${d[cle]}</em>` : ""}
+        <i style="height:${(d[cle] / max) * 100}%;background:${couleur}"></i><span class="tip">Semaine du ${lab(d)} : <b>${d[cle]}</b> ${unite}</span></div>`).join("")}</div>
+      <div class="axe">${data.map((d) => `<span>${lab(d)}</span>`).join("")}</div></div>`;
+  }
+  function tableau(titre, cols, rows) {
+    if (!rows.length) return "";
+    return `<div class="card st-sec"><h2>${titre}</h2><div class="table-wrap"><table class="st-table"><thead><tr>${cols.map((c) => `<th class="${c[2] || ""}">${c[0]}</th>`).join("")}</tr></thead>
+      <tbody>${rows.map((r) => `<tr>${cols.map((c) => `<td class="${c[2] || ""}">${c[1](r)}</td>`).join("")}</tr>`).join("")}</tbody></table></div></div>`;
+  }
+  function renderStats(st, multi) {
+    const A = st.adoption, C = st.activite, R = st.resultats;
+    $("#st-maj").textContent = `Chiffres au ${new Date(st.aujourdhui + "T12:00:00").toLocaleDateString("fr-FR")} · ${multi ? "tous les sites" : "E2C " + (SITES[E.site] || ME.sites[0][1])}${$("#st-groupe").value ? " · groupe " + $("#st-groupe").value : ""}`;
+    if (!A.jeunes) { $("#st-body").innerHTML = `<div class="card empty small"><p>Aucun jeune dans cette sélection.</p></div>`; return; }
+    const grp = (g) => `<b>${esc(g.nom)}</b>`;
+    const n = (k) => (r) => r[k];
+    const tx = (a, b) => (r) => P(r[b] ? Math.round((r[a] / r[b]) * 100) : null);
+    $("#st-body").innerHTML = `
+      <div class="card st-sec"><h2>Utilisation</h2><p class="muted">Les jeunes se sont-ils approprié l'outil ?</p>
+        <div class="tiles">
+          ${tile(A.connectes, "jeunes connectés au moins une fois", A.connectes, A.jeunes, "/ " + A.jeunes)}
+          ${tile(A.dossier, "dossiers complets (CV + lettre)", A.dossier, A.jeunes, "/ " + A.jeunes)}
+          ${tile(A.actifs7, "jeunes actifs ces 7 derniers jours", A.actifs7, A.jeunes, "/ " + A.jeunes)}
+          ${tile(A.avecEnvoi, "jeunes ayant envoyé au moins une candidature", A.avecEnvoi, A.jeunes, "/ " + A.jeunes)}
+        </div></div>
+      <div class="card st-sec"><h2>Recherche</h2><p class="muted">Cherchent-ils plus, et relancent-ils ?</p>
+        <div class="tiles">
+          ${tile(C.candidatures, "candidatures envoyées")}
+          ${tile(C.candidatures7, "candidatures ces 7 derniers jours")}
+          ${tile(String(C.parJeuneActif).replace(".", ","), "candidatures par jeune actif")}
+          ${tile(P(C.tauxRelance), `relances faites (${C.relancesFaites} sur ${C.relancesDues} dues)`, C.relancesFaites, C.relancesDues)}
+        </div></div>
+      <div class="card st-sec"><h2>Résultats</h2><p class="muted">Est-ce que ça marche ?</p>
+        <div class="tiles">
+          ${tile(P(R.tauxReponse), `taux de réponse (${R.reponses} réponses)`, R.reponses, C.candidatures)}
+          ${tile(R.entretiens, "entretiens obtenus")}
+          ${tile(R.jeunesTrouve, "jeunes ayant trouvé un stage, une alternance ou un emploi", R.jeunesTrouve, A.jeunes, "/ " + A.jeunes)}
+          ${tile(JRS(R.delaiReponse), "délai médian de réponse")}
+        </div>
+        ${A.delaiPremiereCandidature != null ? `<p class="muted" style="margin-top:10px">Délai médian entre la première connexion et la première candidature : <b>${JRS(A.delaiPremiereCandidature)}</b>.</p>` : ""}
+      </div>
+      <div class="card st-sec"><h2>Évolution</h2><p class="muted">Les 8 dernières semaines. Survolez une barre pour le détail.</p>
+        <div class="charts">
+          ${barres("Candidatures envoyées", "par semaine", st.semaines, "candidatures", "var(--accent)", "candidature(s)")}
+          ${barres("Jeunes actifs", "jeunes qui ont utilisé l'outil dans la semaine", st.semaines, "jeunesActifs", "var(--blue)", "jeune(s)")}
+        </div>
+        <div class="table-wrap" style="margin-top:14px"><table class="st-table"><thead><tr><th>Semaine du</th><th class="num">Candidatures</th><th class="num">Relances</th><th class="num">Entretiens</th><th class="num">Jeunes actifs</th></tr></thead>
+          <tbody>${st.semaines.map((w) => `<tr><td>${new Date(w.semaine + "T12:00:00").toLocaleDateString("fr-FR")}</td><td class="num">${w.candidatures}</td><td class="num">${w.relances}</td><td class="num">${w.entretiens}</td><td class="num">${w.jeunesActifs}</td></tr>`).join("")}</tbody></table></div>
+      </div>
+      ${multi ? tableau("Par site", [["Site", grp], ["Jeunes", n("jeunes"), "num"], ["Connectés", n("connectes"), "num"], ["Dossier complet", n("dossier"), "num"], ["Candidatures", n("candidatures"), "num"], ["Taux de réponse", tx("reponses", "candidatures"), "num"], ["Entretiens", n("entretiens"), "num"], ["Trouvés", n("trouves"), "num"]], st.parSite) : ""}
+      ${tableau("Par groupe", [["Groupe", grp], ["Jeunes", n("jeunes"), "num"], ["Connectés", n("connectes"), "num"], ["Dossier complet", n("dossier"), "num"], ["Candidatures", n("candidatures"), "num"], ["Taux de réponse", tx("reponses", "candidatures"), "num"], ["Entretiens", n("entretiens"), "num"], ["Trouvés", n("trouves"), "num"]], st.parGroupe)}
+      ${tableau("Par métier", [["Métier", (m) => `<b>${esc(m.metier)}</b>`], ["Candidatures", n("candidatures"), "num"], ["Réponses", n("reponses"), "num"], ["Taux de réponse", tx("reponses", "candidatures"), "num"], ["Réponses positives", n("positives"), "num"]], st.metiers)}
+      ${tableau("Stage, alternance ou emploi", [["Recherche", (m) => `<b>${esc(m.type)}</b>`], ["Candidatures", n("candidatures"), "num"], ["Taux de réponse", tx("reponses", "candidatures"), "num"], ["Trouvés", n("trouves"), "num"]], st.types)}
+      <p class="note">Les réponses et les résultats sont indiqués par les jeunes dans leur suivi : rappelez-leur de mettre à jour le statut quand une entreprise répond. L'export Excel contient tous ces tableaux.</p>`;
   }
 
   // ----- dialogues -----
