@@ -137,6 +137,13 @@ function needSite(me, site) {
 }
 
 const actions = {
+  // vérification technique du stockage (écriture + lecture), sans données personnelles
+  async sante() {
+    const t = now();
+    await store.putJSON("sante/test.json", { t });
+    const r = await store.getJSON("sante/test.json");
+    return { ok: !!r && r.t === t, stockage: process.env.LOCAL_STORE ? "local" : "blob", region: process.env.VERCEL_REGION || "" };
+  },
   // ----- connexions -----
   async "login-jeune"(req, b) {
     const site = String(b.site || "");
