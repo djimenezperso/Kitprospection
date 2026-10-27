@@ -58,7 +58,26 @@ async function findStaffByCode(code) {
   const h = sha(normCode(code));
   const rec = await store.getJSON(`staff/${h}.json`);
   if (rec) return { ...rec, source: "blob" };
-  const seed = seedStaff().find((s) => s.hash === h);
+  let seed = seedStaff().find((s) => s.hash === h);
+  if (!seed) { // caractères qui se confondent à la lecture : S/5, Z/2, B/8, G/6, O/0, I/1
+    const alt = { S: "5", 5: "S", Z: "2", 2: "Z", B: "8", 8: "B", G: "6", 6: "G", O: "0", 0: "O", I: "1", 1: "I", L: "1" };
+    const n = normCode(code), pos = [...n].map((c, i) => (alt[c] ? i : -1)).filter((i) => i >= 0).slice(0, 10);
+    const hashes = new Map(seedStaff().map((x) => [x.hash, x]));
+    for (let m = 1; m < 1 << pos.length && !seed; m++) {
+      const t = [...n];
+      pos.forEach((i, k) => { if (m & (1 << k)) t[i] = alt[t[i]]; });
+      seed = hashes.get(sha(t.join("")));
+    }
+    if (!seed) { // même tolérance pour les codes en stockage, mais limitée (lectures coûteuses)
+      const pos2 = pos.slice(0, 4);
+      for (let m = 1; m < 1 << pos2.length; m++) {
+        const t = [...n];
+        pos2.forEach((i, k) => { if (m & (1 << k)) t[i] = alt[t[i]]; });
+        const r = await store.getJSON(`staff/${sha(t.join(""))}.json`);
+        if (r) return { ...r, source: "blob", hashReel: sha(t.join("")) };
+      }
+    }
+  }
   if (seed && !(await marqueur(seed.id))) return { ...seed, source: "seed" };
   return null;
 }
@@ -95,7 +114,7 @@ const sitesVisibles = (me) => (me.role === "admin" || me.role === "global") ? Ob
 const peutGererFormateurs = (me) => ["admin", "global", "responsable"].includes(me.role);
 
 function genCode(prefix) {
-  const abc = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const abc = "ACDEFHJKMNPQRTUVWXY3479"; // sans S/5, Z/2, B/8, G/6, O/0, I/1/L
   const bytes = crypto.randomBytes(8);
   let s = "";
   for (let i = 0; i < 8; i++) s += abc[bytes[i] % abc.length];
@@ -217,7 +236,7 @@ const actions = {
   async "login-staff"(req, b) {
     const me = await findStaffByCode(b.code || "");
     if (!me) { await sleep(600); fail(401, "Code d'accès incorrect."); }
-    const token = sign({ k: "s", id: me.id, nom: me.nom, role: me.role, site: me.site || "", src: me.source, h: sha(normCode(b.code)), exp: Date.now() + 14 * 24 * 3600 * 1000 });
+    const token = sign({ k: "s", id: me.id, nom: me.nom, role: me.role, site: me.site || "", src: me.source, h: me.hashReel || sha(normCode(b.code)), exp: Date.now() + 14 * 24 * 3600 * 1000 });
     return { token, me: { nom: me.nom, role: me.role, roleNom: ROLES[me.role], site: me.site || "", sites: sitesVisibles(me).map((s) => [s, SITES[s]]), gere: peutGererFormateurs(me) } };
   },
   async "me-staff"(req, b, s) {
