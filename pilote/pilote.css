@@ -82,8 +82,8 @@ table.sans-site .col-site { display: none; }
   body { background: #fff; }
   .no-print, .toast { display: none !important; }
   .print-only { display: block; }
-  .cartes { display: grid; grid-template-columns: 85mm 85mm; gap: 4mm 6mm; justify-content: center; }
-  .carte { width: 85mm; height: 54mm; border: 0.3mm dashed #999; border-radius: 3mm; padding: 3.5mm 4mm; display: flex; flex-direction: column; break-inside: avoid; font-family: "DM Sans", Arial, sans-serif; color: #152238; }
+  .cartes { display: flex; flex-wrap: wrap; gap: 3mm 6mm; width: 176mm; margin: 0 auto; }
+  .carte { width: 85mm; height: 52mm; border: 0.3mm dashed #999; border-radius: 3mm; padding: 3.5mm 4mm; display: flex; flex-direction: column; break-inside: avoid; font-family: "DM Sans", Arial, sans-serif; color: #152238; }
   .carte-h { display: flex; align-items: center; gap: 2mm; font: 700 10pt "Bricolage Grotesque", Arial, sans-serif; }
   .carte-h svg { width: 6mm; height: 6mm; }
   .carte-h em { margin-left: auto; font: 600 8pt "DM Sans", Arial, sans-serif; font-style: normal; background: #ffe9e0; color: #b53d14; padding: .6mm 2mm; border-radius: 3mm; }
