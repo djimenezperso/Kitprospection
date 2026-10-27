@@ -216,6 +216,19 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
       <p id="e-sous"></p>
     </div>
     <nav class="subtabs" id="e-sites" aria-label="Sites"></nav>
+    <div class="vues" role="tablist" aria-label="Affichage">
+      <button role="tab" class="on" data-vue="liste" aria-selected="true">Jeunes</button>
+      <button role="tab" data-vue="stats" aria-selected="false">Statistiques</button>
+    </div>
+    <div id="e-stats" hidden>
+      <div class="stats-head">
+        <p class="muted" id="st-maj"></p>
+        <div class="row-btns" style="margin:0"><select id="st-groupe" aria-label="Groupe"><option value="">Tous les groupes</option></select>
+        <button class="btn ghost" type="button" id="st-export">Export Excel</button></div>
+      </div>
+      <div id="st-body"><div class="card empty small"><p>Chargement…</p></div></div>
+    </div>
+    <div id="e-liste">
     <div class="toolbar">
       <button class="btn primary" type="button" id="btn-ajout">+ Ajouter des jeunes</button>
       <button class="btn ghost" type="button" id="btn-cartes">Cartes à imprimer</button>
@@ -242,6 +255,7 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
         <tbody></tbody>
       </table></div>
       <p class="muted">Cliquez sur un jeune pour voir ses candidatures et son CV.</p>
+    </div>
     </div>
   </section>
 </main>

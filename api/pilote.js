@@ -157,6 +157,14 @@ function relanceDate(iso) {
   return d.toISOString().slice(0, 10);
 }
 
+// trace d'activité : première connexion et jours d'utilisation (pour les statistiques)
+function activite(j) {
+  const t = todayParis();
+  j.vu = now();
+  if (!j.premiere) j.premiere = j.vu;
+  j.jours = j.jours || [];
+  if (j.jours[j.jours.length - 1] !== t) { j.jours.push(t); if (j.jours.length > 200) j.jours = j.jours.slice(-200); }
+}
 async function loadJeune(site, key) {
   if (!SITES[site] || !/^[a-f0-9]{32}$/.test(key || "")) fail(404, "Jeune introuvable.");
   const j = await store.getJSON(jeunePath(site, key));
@@ -229,7 +237,7 @@ const actions = {
     if (!j) j = await rechercheTolerante(site, p, n);
     if (!j) { await sleep(500); fail(401, "Identifiant inconnu sur ce site. Vérifie le site et l'orthographe, ou demande à ton formateur."); }
     const key = j.key;
-    j.vu = now(); await saveJeune(j);
+    activite(j); await saveJeune(j);
     const token = sign({ k: "j", site, key, exp: Date.now() + 60 * 24 * 3600 * 1000 });
     return { token, jeune: vueJeune(j) };
   },
@@ -259,7 +267,7 @@ const actions = {
     if (b.rayon !== undefined) j.rayon = Math.min(Math.max(+b.rayon || 3, 1), 10);
     if (b.lettre !== undefined) j.lettre = clean(b.lettre, 8000);
     if (b.objet !== undefined) j.objet = clean(b.objet, 200);
-    j.vu = now();
+    activite(j);
     await saveJeune(j);
     return { jeune: vueJeune(j) };
   },
@@ -275,7 +283,7 @@ const actions = {
     await store.putBuffer(p, buf, b.type);
     if (j.cv && j.cv.path) await store.remove(j.cv.path);
     j.cv = { path: p, nom: clean(b.nom, 120) || `CV.${ext}`, type: b.type, taille: buf.length, date: now() };
-    j.vu = now();
+    activite(j);
     await saveJeune(j);
     return { jeune: vueJeune(j) };
   },
@@ -300,7 +308,7 @@ const actions = {
         relanceFaite: "", maj: now(),
       });
     }
-    j.vu = now(); await saveJeune(j);
+    activite(j); await saveJeune(j);
     return { jeune: vueJeune(j) };
   },
   async statut(req, b, s) {
@@ -310,11 +318,16 @@ const actions = {
     if (!e) fail(404, "Envoi introuvable.");
     if (b.statut !== undefined) {
       if (!STATUTS.includes(b.statut)) fail(400, "Statut inconnu.");
-      e.statut = b.statut;
+      if (e.statut !== b.statut) {
+        e.statut = b.statut;
+        e.dates = e.dates || {};
+        if (!e.dates[b.statut]) e.dates[b.statut] = todayParis();
+        e.hist = (e.hist || []).concat([{ d: todayParis(), s: b.statut }]).slice(-20);
+      }
       if (b.statut === "Relancé" && !e.relanceFaite) e.relanceFaite = todayParis();
     }
     if (b.suppr) j.envois = j.envois.filter((x) => x.siret !== b.siret);
-    e.maj = now(); j.vu = now();
+    e.maj = now(); activite(j);
     await saveJeune(j);
     return { jeune: vueJeune(j) };
   },
@@ -338,6 +351,14 @@ const actions = {
     needSite(me, b.site);
     const j = await loadJeune(b.site, b.key);
     return { jeune: { ...vueJeune(j), code: j.code || "", formateur: j.formateur || "", key: j.key }, resume: resume(j) };
+  },
+  async stats(req, b, s) {
+    const me = await needStaff(s);
+    const sites = b.site && b.site !== "tous" ? [b.site] : sitesVisibles(me);
+    sites.forEach((x) => needSite(me, x));
+    let js = await jeunesDe(sites);
+    if (b.groupe) js = js.filter((j) => (j.groupe || "") === b.groupe);
+    return { sites: sites.map((x) => [x, SITES[x]]), stats: calculerStats(js) };
   },
   async "ajout-jeunes"(req, b, s) {
     const me = await needStaff(s);
@@ -446,6 +467,97 @@ async function telechargerCV(req, res, s) {
   res.status(200).send(f.buf);
 }
 
+// ---------- statistiques ----------
+const REPONSES = ["Réponse positive", "Entretien obtenu", "Refus", "Pris(e)"];
+const POSITIVES = ["Réponse positive", "Entretien obtenu", "Pris(e)"];
+const ajouterJours = (iso, n) => { const d = new Date(iso + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const lundi = (iso) => { const d = new Date(iso + "T12:00:00Z"); const k = (d.getUTCDay() + 6) % 7; d.setUTCDate(d.getUTCDate() - k); return d.toISOString().slice(0, 10); };
+const ecart = (a, b) => Math.round((new Date(b + "T12:00:00Z") - new Date(a + "T12:00:00Z")) / 86400000);
+const pct = (a, b) => (b ? Math.round((a / b) * 100) : null);
+const mediane = (xs) => { if (!xs.length) return null; const v = xs.slice().sort((a, b) => a - b), m = v.length >> 1; return v.length % 2 ? v[m] : Math.round((v[m - 1] + v[m]) / 2); };
+const dateStatut = (e, liste) => { const d = liste.map((x) => (e.dates || {})[x]).filter(Boolean).sort()[0]; return d || (liste.includes(e.statut) ? (e.maj || "").slice(0, 10) : ""); };
+
+function calculerStats(jeunes) {
+  const t = todayParis(), il7 = ajouterJours(t, -6);
+  const env = [];
+  jeunes.forEach((j) => (j.envois || []).forEach((e) => env.push({ j, e })));
+  const actif = (j) => (j.jours || []).some((d) => d >= il7) || (j.vu || "").slice(0, 10) >= il7;
+  const dues = env.filter(({ e }) => e.relance && e.relance <= t && (["Envoyé", "Relancé"].includes(e.statut) || e.relanceFaite));
+  const faites = dues.filter(({ e }) => e.relanceFaite || e.statut === "Relancé");
+  const rep = env.filter(({ e }) => REPONSES.includes(e.statut));
+  const delaisRep = rep.map(({ e }) => { const d = dateStatut(e, REPONSES); return d && e.envoye ? ecart(e.envoye, d) : null; }).filter((x) => x != null && x >= 0);
+  const premiere = jeunes.map((j) => { const d = (j.envois || []).map((e) => e.envoye).filter(Boolean).sort()[0]; const dep = j.entree || (j.premiere || "").slice(0, 10); return d && dep ? ecart(dep, d) : null; }).filter((x) => x != null && x >= 0);
+  const adoption = {
+    jeunes: jeunes.length,
+    connectes: jeunes.filter((j) => j.premiere || j.vu).length,
+    dossier: jeunes.filter((j) => j.cv && (j.lettre || "").trim()).length,
+    actifs7: jeunes.filter(actif).length,
+    avecEnvoi: jeunes.filter((j) => (j.envois || []).length).length,
+    delaiPremiereCandidature: mediane(premiere),
+  };
+  const activiteS = {
+    candidatures: env.length,
+    parJeune: jeunes.length ? Math.round((env.length / jeunes.length) * 10) / 10 : 0,
+    parJeuneActif: adoption.avecEnvoi ? Math.round((env.length / adoption.avecEnvoi) * 10) / 10 : 0,
+    candidatures7: env.filter(({ e }) => e.envoye >= il7).length,
+    relancesDues: dues.length, relancesFaites: faites.length, tauxRelance: pct(faites.length, dues.length),
+  };
+  const resultats = {
+    reponses: rep.length, tauxReponse: pct(rep.length, env.length),
+    positives: env.filter(({ e }) => POSITIVES.includes(e.statut)).length,
+    entretiens: env.filter(({ e }) => e.statut === "Entretien obtenu" || e.statut === "Pris(e)" || (e.dates || {})["Entretien obtenu"]).length,
+    refus: env.filter(({ e }) => e.statut === "Refus").length,
+    trouves: env.filter(({ e }) => e.statut === "Pris(e)").length,
+    jeunesTrouve: jeunes.filter((j) => (j.envois || []).some((e) => e.statut === "Pris(e)")).length,
+    delaiReponse: mediane(delaisRep),
+  };
+  // 8 dernières semaines
+  const debut = lundi(ajouterJours(t, -7 * 7));
+  const semaines = [];
+  for (let k = 0; k < 8; k++) {
+    const d = ajouterJours(debut, 7 * k), f = ajouterJours(d, 6);
+    const dans = (x) => x && x >= d && x <= f;
+    semaines.push({
+      semaine: d,
+      candidatures: env.filter(({ e }) => dans(e.envoye)).length,
+      relances: env.filter(({ e }) => dans(e.relanceFaite)).length,
+      entretiens: env.filter(({ e }) => dans(dateStatut(e, ["Entretien obtenu", "Pris(e)"]))).length,
+      jeunesActifs: jeunes.filter((j) => (j.jours || []).some(dans)).length,
+    });
+  }
+  const groupe = (cle) => {
+    const m = new Map();
+    jeunes.forEach((j) => { const k = cle(j); if (!m.has(k)) m.set(k, []); m.get(k).push(j); });
+    return [...m.entries()].map(([k, js]) => {
+      const e = js.flatMap((j) => j.envois || []);
+      return { nom: k, jeunes: js.length, connectes: js.filter((j) => j.premiere || j.vu).length, dossier: js.filter((j) => j.cv && (j.lettre || "").trim()).length,
+        candidatures: e.length, reponses: e.filter((x) => REPONSES.includes(x.statut)).length,
+        entretiens: e.filter((x) => x.statut === "Entretien obtenu" || x.statut === "Pris(e)").length, trouves: e.filter((x) => x.statut === "Pris(e)").length };
+    }).sort((a, b) => String(a.nom).localeCompare(String(b.nom), "fr", { numeric: true }));
+  };
+  const metiers = new Map();
+  env.forEach(({ e, j }) => { const k = e.metier || j.metier || "?"; const r = metiers.get(k) || { metier: METIER_NOMS[k] || "Non précisé", candidatures: 0, reponses: 0, positives: 0 };
+    r.candidatures++; if (REPONSES.includes(e.statut)) r.reponses++; if (POSITIVES.includes(e.statut)) r.positives++; metiers.set(k, r); });
+  const types = new Map();
+  env.forEach(({ e, j }) => { const k = e.typ || j.typ || "?"; const r = types.get(k) || { type: { stage: "Stage", alternance: "Alternance", emploi: "Emploi" }[k] || "Non précisé", candidatures: 0, reponses: 0, trouves: 0 };
+    r.candidatures++; if (REPONSES.includes(e.statut)) r.reponses++; if (e.statut === "Pris(e)") r.trouves++; types.set(k, r); });
+  return {
+    aujourdhui: t, adoption, activite: activiteS, resultats, semaines,
+    parSite: groupe((j) => SITES[j.site]),
+    parGroupe: groupe((j) => `${SITES[j.site]} · ${j.groupe || "sans groupe"}`),
+    metiers: [...metiers.values()].sort((a, b) => b.candidatures - a.candidatures),
+    types: [...types.values()].sort((a, b) => b.candidatures - a.candidatures),
+  };
+}
+async function jeunesDe(sites) {
+  const tous = [];
+  for (const site of sites) {
+    const paths = (await store.list(`jeunes/${site}/`)).filter((p) => p.endsWith(".json"));
+    (await Promise.all(paths.map((p) => store.getJSON(p)))).filter(Boolean).forEach((j) => tous.push(j));
+  }
+  return tous;
+}
+
 const METIER_NOMS = { vente: "Vente / commerce", boulangerie: "Boulangerie / pâtisserie", restauration: "Cuisine / restauration",
   mecanique: "Mécanique automobile", aide: "Aide à la personne", enfance: "Petite enfance", proprete: "Propreté / entretien",
   coiffure: "Coiffure / esthétique", logistique: "Logistique", batiment: "Bâtiment", hotellerie: "Hôtellerie / accueil" };
@@ -481,8 +593,27 @@ async function exporter(req, res, s) {
   const cands = [["Site", "Jeune", "Entreprise", "Ville", "SIRET", "Envoyée le", "Relance prévue le", "Relancée le", "Statut"]];
   R.forEach(([j]) => (j.envois || []).forEach((e) => cands.push([SITES[j.site], `${j.prenom} ${j.nom}`, e.entreprise, e.ville, e.siret,
     frDate(e.envoye), frDate(e.relance), frDate(e.relanceFaite), e.statut])));
+  const st = calculerStats(tous), A = st.adoption, C = st.activite, Rr = st.resultats;
+  const p = (x) => (x == null ? "—" : x + " %"), jr = (x) => (x == null ? "—" : x + " j");
+  const indic = [["Indicateur", "Valeur"],
+    ["Jeunes inscrits", A.jeunes], ["Jeunes connectés au moins une fois", A.connectes], ["Dossier complet (CV + lettre)", A.dossier],
+    ["Jeunes actifs sur les 7 derniers jours", A.actifs7], ["Jeunes ayant envoyé au moins une candidature", A.avecEnvoi],
+    ["Délai médian avant la 1re candidature", jr(A.delaiPremiereCandidature)],
+    ["Candidatures envoyées", C.candidatures], ["Candidatures sur les 7 derniers jours", C.candidatures7],
+    ["Candidatures par jeune (tous)", C.parJeune], ["Candidatures par jeune (ceux qui ont envoyé)", C.parJeuneActif],
+    ["Relances dues", C.relancesDues], ["Relances faites", C.relancesFaites], ["Taux de relance", p(C.tauxRelance)],
+    ["Réponses reçues", Rr.reponses], ["Taux de réponse", p(Rr.tauxReponse)], ["Réponses positives", Rr.positives],
+    ["Entretiens", Rr.entretiens], ["Refus", Rr.refus], ["Stages / contrats trouvés", Rr.trouves], ["Jeunes ayant trouvé", Rr.jeunesTrouve],
+    ["Délai médian de réponse", jr(Rr.delaiReponse)], ["Date du calcul", frDate(st.aujourdhui)]];
+  const sem = [["Semaine du", "Candidatures", "Relances", "Entretiens", "Jeunes actifs"], ...st.semaines.map((w) => [frDate(w.semaine), w.candidatures, w.relances, w.entretiens, w.jeunesActifs])];
+  const grp = [["Groupe", "Jeunes", "Connectés", "Dossier complet", "Candidatures", "Réponses", "Entretiens", "Trouvés"], ...st.parGroupe.map((g) => [g.nom, g.jeunes, g.connectes, g.dossier, g.candidatures, g.reponses, g.entretiens, g.trouves])];
+  const met = [["Métier", "Candidatures", "Réponses", "Taux de réponse", "Réponses positives"], ...st.metiers.map((m) => [m.metier, m.candidatures, m.reponses, p(pct(m.reponses, m.candidatures)), m.positives])];
   const buf = require("../lib/xlsx").workbook([
+    { name: "Indicateurs", rows: indic, widths: [46, 14] },
+    { name: "Par semaine", rows: sem, widths: [14, 14, 11, 12, 14] },
     { name: "Synthèse", rows: synth, widths: [14, 9, 22, 14, 12, 12, 10, 11, 16] },
+    { name: "Par groupe", rows: grp, widths: [30, 9, 11, 15, 13, 10, 11, 9] },
+    { name: "Par métier", rows: met, widths: [28, 13, 10, 15, 18] },
     { name: "Jeunes", rows: jeunes, widths: [11, 12, 14, 16, 22, 12, 20, 22, 11, 10, 11, 12, 9, 9, 10, 8, 10, 16] },
     { name: "Candidatures", rows: cands, widths: [11, 22, 30, 16, 16, 12, 15, 12, 16] },
   ]);
