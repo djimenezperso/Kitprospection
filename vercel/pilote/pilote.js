@@ -785,9 +785,9 @@ ${nomComplet()}`;
   }
   const P = (x) => (x == null ? "—" : x + " %");
   const JRS = (x) => (x == null ? "—" : x + (x === 1 ? " jour" : " jours"));
-  function tile(val, label, part, total, sous) {
+  function tile(val, label, part, total, sous, liste) {
     const pc = total ? Math.round((part / total) * 100) : null;
-    return `<div class="tile"><b>${val}${sous ? `<small>${sous}</small>` : ""}</b><span>${label}</span>${pc != null ? `<div class="jauge" role="img" aria-label="${pc} %"><i style="width:${pc}%"></i></div>` : ""}</div>`;
+    return `<div class="tile${liste ? " clic" : ""}"${liste ? ` data-liste="${liste}" role="button" tabindex="0" aria-label="${esc(label)} : voir qui"` : ""}><b>${val}${sous ? `<small>${sous}</small>` : ""}</b><span>${label}</span>${pc != null ? `<div class="jauge" role="img" aria-label="${pc} %"><i style="width:${pc}%"></i></div>` : ""}</div>`;
   }
   function barres(titre, sous, data, cle, couleur, unite) {
     const max = Math.max(1, ...data.map((d) => d[cle]));
@@ -804,6 +804,22 @@ ${nomComplet()}`;
     return `<div class="card st-sec"><h2>${titre}</h2><div class="table-wrap"><table class="st-table"><thead><tr>${cols.map((c) => `<th class="${c[2] || ""}">${c[0]}</th>`).join("")}</tr></thead>
       <tbody>${rows.map((r) => `<tr>${cols.map((c) => `<td class="${c[2] || ""}">${c[1](r)}</td>`).join("")}</tr>`).join("")}</tbody></table></div></div>`;
   }
+  const LISTES = {
+    connecte: ["Connectés au moins une fois", "Pas encore connectés", (j) => j.connecte],
+    dossier: ["Dossier complet", "Dossier incomplet", (j) => j.cv && j.lettre],
+    actif7: ["Actifs ces 7 derniers jours", "Pas actifs cette semaine", (j) => j.actif7],
+    envoi: ["Ont envoyé au moins une candidature", "Aucune candidature", (j) => j.envois > 0],
+    trouve: ["Ont trouvé", "Pas encore", (j) => j.pris > 0],
+  };
+  function ouvrirListe(cle) {
+    const [oui, non, f] = LISTES[cle], g = $("#st-groupe").value;
+    const js = E.jeunes.filter((j) => !g || (j.groupe || "").trim() === g);
+    const a = js.filter(f), b = js.filter((j) => !f(j));
+    const col = (titre, l) => `<div><h3>${titre} <span class="muted">(${l.length})</span></h3>${l.length ? `<ul class="liste-noms">${l.map((j) => `<li><a href="#" data-k="${esc(j.key)}">${esc(j.prenom)} ${esc(j.nom)}</a> <span class="muted sm">${E.site === "tous" && ME.sites.length > 1 ? esc(SITES[j.site]) + " · " : ""}${j.groupe ? "gr. " + esc(j.groupe) : ""}${cle === "dossier" && !f(j) ? " · manque " + [!j.cv && "CV", !j.lettre && "lettre"].filter(Boolean).join(" et ") : ""}</span></li>`).join("")}</ul>` : `<p class="muted">Personne.</p>`}</div>`;
+    ouvrirDlg(`<h2>${oui}</h2><div class="deux-col">${col(oui, a)}${col(non, b)}</div>`, (root) => {
+      $$("[data-k]", root).forEach((x) => x.addEventListener("click", (ev) => { ev.preventDefault(); const j = E.jeunes.find((y) => y.key === x.dataset.k); if (j) ouvrirJeune(j); }));
+    });
+  }
   function renderStats(st, multi) {
     const A = st.adoption, C = st.activite, R = st.resultats;
     $("#st-maj").textContent = `Chiffres au ${new Date(st.aujourdhui + "T12:00:00").toLocaleDateString("fr-FR")} · ${multi ? "tous les sites" : "E2C " + (SITES[E.site] || ME.sites[0][1])}${$("#st-groupe").value ? " · groupe " + $("#st-groupe").value : ""}`;
@@ -814,10 +830,10 @@ ${nomComplet()}`;
     $("#st-body").innerHTML = `
       <div class="card st-sec"><h2>Utilisation</h2><p class="muted">Les jeunes se sont-ils approprié l'outil ?</p>
         <div class="tiles">
-          ${tile(A.connectes, "jeunes connectés au moins une fois", A.connectes, A.jeunes, "/ " + A.jeunes)}
-          ${tile(A.dossier, "dossiers complets (CV + lettre)", A.dossier, A.jeunes, "/ " + A.jeunes)}
-          ${tile(A.actifs7, "jeunes actifs ces 7 derniers jours", A.actifs7, A.jeunes, "/ " + A.jeunes)}
-          ${tile(A.avecEnvoi, "jeunes ayant envoyé au moins une candidature", A.avecEnvoi, A.jeunes, "/ " + A.jeunes)}
+          ${tile(A.connectes, "jeunes connectés au moins une fois", A.connectes, A.jeunes, "/ " + A.jeunes, "connecte")}
+          ${tile(A.dossier, "dossiers complets (CV + lettre)", A.dossier, A.jeunes, "/ " + A.jeunes, "dossier")}
+          ${tile(A.actifs7, "jeunes actifs ces 7 derniers jours", A.actifs7, A.jeunes, "/ " + A.jeunes, "actif7")}
+          ${tile(A.avecEnvoi, "jeunes ayant envoyé au moins une candidature", A.avecEnvoi, A.jeunes, "/ " + A.jeunes, "envoi")}
         </div></div>
       <div class="card st-sec"><h2>Recherche</h2><p class="muted">Cherchent-ils plus, et relancent-ils ?</p>
         <div class="tiles">
@@ -830,7 +846,7 @@ ${nomComplet()}`;
         <div class="tiles">
           ${tile(P(R.tauxReponse), `taux de réponse (${R.reponses} réponses)`, R.reponses, C.candidatures)}
           ${tile(R.entretiens, "entretiens obtenus")}
-          ${tile(R.jeunesTrouve, "jeunes ayant trouvé un stage, une alternance ou un emploi", R.jeunesTrouve, A.jeunes, "/ " + A.jeunes)}
+          ${tile(R.jeunesTrouve, "jeunes ayant trouvé un stage, une alternance ou un emploi", R.jeunesTrouve, A.jeunes, "/ " + A.jeunes, "trouve")}
           ${tile(JRS(R.delaiReponse), "délai médian de réponse")}
         </div>
         ${A.delaiPremiereCandidature != null ? `<p class="muted" style="margin-top:10px">Délai médian entre la première connexion et la première candidature : <b>${JRS(A.delaiPremiereCandidature)}</b>.</p>` : ""}
@@ -847,7 +863,11 @@ ${nomComplet()}`;
       ${tableau("Par groupe", [["Groupe", grp], ["Jeunes", n("jeunes"), "num"], ["Connectés", n("connectes"), "num"], ["Dossier complet", n("dossier"), "num"], ["Candidatures", n("candidatures"), "num"], ["Taux de réponse", tx("reponses", "candidatures"), "num"], ["Entretiens", n("entretiens"), "num"], ["Trouvés", n("trouves"), "num"]], st.parGroupe)}
       ${tableau("Par métier", [["Métier", (m) => `<b>${esc(m.metier)}</b>`], ["Candidatures", n("candidatures"), "num"], ["Réponses", n("reponses"), "num"], ["Taux de réponse", tx("reponses", "candidatures"), "num"], ["Réponses positives", n("positives"), "num"]], st.metiers)}
       ${tableau("Stage, alternance ou emploi", [["Recherche", (m) => `<b>${esc(m.type)}</b>`], ["Candidatures", n("candidatures"), "num"], ["Taux de réponse", tx("reponses", "candidatures"), "num"], ["Trouvés", n("trouves"), "num"]], st.types)}
-      <p class="note">Les réponses et les résultats sont indiqués par les jeunes dans leur suivi : rappelez-leur de mettre à jour le statut quand une entreprise répond. L'export Excel contient tous ces tableaux.</p>`;
+      <p class="note">Touchez une case « Utilisation » pour voir qui est concerné. Les réponses et les résultats sont indiqués par les jeunes dans leur suivi : rappelez-leur de mettre à jour le statut quand une entreprise répond. L'export Excel contient tous ces tableaux.</p>`;
+    $$("#st-body [data-liste]").forEach((t) => {
+      t.addEventListener("click", () => ouvrirListe(t.dataset.liste));
+      t.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); ouvrirListe(t.dataset.liste); } });
+    });
   }
 
   // ----- dialogues -----
@@ -881,12 +901,18 @@ ${nomComplet()}`;
         </tbody></table></div>` : `<p class="muted">Aucune candidature pour le moment.</p>`}
         <div class="dlg-foot">
           <button class="btn ghost sm" type="button" id="d-carte">Imprimer sa carte</button>
+          ${ME.role === "admin" && r.resume.connecte ? `<button class="btn ghost sm" type="button" id="d-reset">Effacer sa connexion (test)</button>` : ""}
           ${ME.gere ? `<button class="btn ghost sm danger" type="button" id="d-suppr">Retirer ce jeune</button>` : ""}
         </div>`, (root) => {
         const cv = $("#d-cv", root); if (cv) cv.addEventListener("click", () => telecharger("cv-fichier", { site: d.site, key: d.key }, d.cv.nom).catch((e) => toast(e.message)));
         const lt = $("#d-lettre", root); if (lt) lt.addEventListener("click", () => { const p = $("#d-lettre-txt", root); p.hidden = !p.hidden; });
         $("#d-form-ok", root).addEventListener("click", async () => {
           try { await api("maj-jeune", { site: d.site, key: d.key, formateur: $("#d-form", root).value }); toast("Enregistré ✓"); chargerJeunes(); } catch (e) { toast(e.message); }
+        });
+        const rs = $("#d-reset", root);
+        if (rs) rs.addEventListener("click", async () => {
+          if (!confirmer("Effacer la trace de connexion de ce jeune ?")) return;
+          try { await api("reset-activite", { site: d.site, key: d.key }); toast("Connexion effacée."); dlg.close(); await chargerJeunes(); if (E.vue === "stats") chargerStats(); } catch (e) { toast(e.message); }
         });
         $("#d-carte", root).addEventListener("click", () => imprimerCartes([{ prenom: d.prenom, nom: d.nom, ident: d.ident, site: d.site }]));
         const sp = $("#d-suppr", root);
