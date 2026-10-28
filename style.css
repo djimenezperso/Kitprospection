@@ -164,3 +164,10 @@ details.rel .row { display: flex; gap: 8px; flex-wrap: wrap; }
 .top-in .seg { order: 3; }
 @media (max-width: 699px) { .top-in .seg { flex-basis: 100%; justify-content: center; } }
 @media (min-width: 700px) { .top-in .seg { order: 2; margin-left: auto; } .createur { order: 3; margin-left: 0; } }
+@media (max-width: 699px) {
+  .createur { font-size: .68rem; padding: 3px 7px; border-radius: 6px; }
+  .top-in .brand { font-size: 1rem; gap: 8px; }
+  .top-in .brand svg { width: 28px; height: 28px; }
+  .top-in { row-gap: 8px; }
+}
+@media (max-width: 389px) { .createur .cp { display: none; } }
