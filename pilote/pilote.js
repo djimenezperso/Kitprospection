@@ -1138,9 +1138,10 @@ ${nomComplet()}`;
     } catch (e) { ouvrirDlg(`<p>${esc(e.message)}</p>`); }
   }
 
-  const msgActivation = (x) => `Bonjour,
+  const prenomDe = (nom) => String(nom || "").replace(/\s*\(.*\)\s*/g, " ").trim().split(/\s+/)[0] || "";
+  const msgActivation = (x) => `Bonjour ${prenomDe(x.nom)},
 
-Voici votre accès personnel au Kit de prospection assistée (E2C 92), pour suivre les stagiaires${x.site ? " du site de " + x.siteNom : ""}.
+Voici votre accès personnel au Kit de prospection assistée (E2C 92), pour suivre les stagiaires${x.site ? " du site de " + x.siteNom : " de tous les sites"}.
 
 Cliquez sur ce lien pour activer votre accès et choisir votre code personnel :
 ${x.lien}
