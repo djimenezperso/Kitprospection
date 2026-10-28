@@ -1047,13 +1047,23 @@ ${nomComplet()}`;
   }
   $("#btn-cartes").addEventListener("click", () => {
     const js = jeunesFiltres();
-    if (!js.length) { toast("Ajoutez d'abord des jeunes."); return; }
+    if (!js.length) { toast("Aucun jeune dans cette sélection."); return; }
     ouvrirDlg(`<h2>Cartes à imprimer</h2>
-      <p class="muted">Une carte par jeune (format carte de visite, 10 par page A4), avec son identifiant et le QR code de son site. La liste suit les filtres choisis (groupe, formateur).</p>
-      <div class="check-list">${js.map((j, i) => `<label class="check"><input type="checkbox" data-c="${i}" checked> ${esc(j.prenom)} ${esc(j.nom)} <span class="muted sm">(${esc(SITES[j.site])})</span></label>`).join("")}</div>
-      <div class="row-btns"><button class="btn ghost sm" type="button" id="c-none">Tout décocher</button><button class="btn primary" type="button" id="c-go">Imprimer</button></div>`, (root) => {
-      $("#c-none", root).addEventListener("click", () => $$("[data-c]", root).forEach((c) => { c.checked = false; }));
-      $("#c-go", root).addEventListener("click", () => imprimerCartes($$("[data-c]", root).filter((c) => c.checked).map((c) => js[+c.dataset.c])));
+      <p class="muted">Cochez les jeunes dont vous voulez la carte (format carte de visite, 10 par page A4) : nom, identifiant et QR code du site. Pratique pour un jeune qui a oublié son identifiant.</p>
+      <input type="search" id="c-q" class="c-q" placeholder="Rechercher un jeune…" aria-label="Rechercher un jeune">
+      <div class="check-list">${js.map((j, i) => `<label class="check" data-n="${esc(normTxt(j.prenom + " " + j.nom + " " + (j.groupe || "")))}"><input type="checkbox" data-c="${i}"> ${esc(j.prenom)} ${esc(j.nom)} <span class="muted sm">${j.groupe ? "gr. " + esc(j.groupe) : ""}${E.site === "tous" && ME.sites.length > 1 ? " · " + esc(SITES[j.site]) : ""}</span></label>`).join("")}</div>
+      <div class="row-btns"><button class="btn ghost sm" type="button" id="c-all">Tout cocher (visibles)</button><button class="btn ghost sm" type="button" id="c-none">Tout décocher</button>
+      <button class="btn primary" type="button" id="c-go">Imprimer <span id="c-nb">0</span> carte(s)</button></div>`, (root) => {
+      const nb = () => { $("#c-nb", root).textContent = $$("[data-c]:checked", root).length; };
+      $$("[data-c]", root).forEach((c) => c.addEventListener("change", nb));
+      $("#c-q", root).addEventListener("input", (ev) => { const q = normTxt(ev.target.value); $$(".check[data-n]", root).forEach((l) => { l.hidden = !!q && !l.dataset.n.includes(q); }); });
+      $("#c-all", root).addEventListener("click", () => { $$(".check[data-n]", root).forEach((l) => { if (!l.hidden) $("input", l).checked = true; }); nb(); });
+      $("#c-none", root).addEventListener("click", () => { $$("[data-c]", root).forEach((c) => { c.checked = false; }); nb(); });
+      $("#c-go", root).addEventListener("click", () => {
+        const l = $$("[data-c]:checked", root).map((c) => js[+c.dataset.c]);
+        if (!l.length) { toast("Cochez au moins un jeune."); return; }
+        imprimerCartes(l);
+      });
     });
   });
   function afficheSite(site) {
