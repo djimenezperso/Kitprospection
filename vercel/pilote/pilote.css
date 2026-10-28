@@ -184,3 +184,7 @@ table.sans-site .col-site { display: none; }
 
 tr.envoye-ok td { background: var(--ok-soft); }
 tr.envoye-ok td:first-child b::after { content: " ✓"; color: var(--ok); }
+
+.chip.deja { background: var(--soft); color: var(--muted); font-weight: 600; }
+.ent.contactee { opacity: .8; }
+.sep-contact { list-style: none; font-size: .86rem; color: var(--muted); padding: 8px 4px 2px; border-top: 1px dashed var(--line); margin-top: 6px; }

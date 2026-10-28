@@ -102,6 +102,7 @@
     if (j <= 0) return "aujourd'hui"; if (j === 1) return "hier"; if (j < 7) return `il y a ${j} jours`;
     return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
   };
+  const quandJour = (iso) => { const j = Math.round((new Date(todayIso() + "T12:00:00") - new Date(iso + "T12:00:00")) / 86400000); return j <= 0 ? "aujourd'hui" : j === 1 ? "hier" : `il y a ${j} jours`; };
   const taille = (n) => n > 1048576 ? (n / 1048576).toFixed(1).replace(".", ",") + " Mo" : Math.max(1, Math.round(n / 1024)) + " Ko";
 
   // ---------- agenda ----------
@@ -501,7 +502,12 @@ ${nomComplet()}`;
       const r = await fetch("/api/entreprises?" + qs);
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || "Erreur");
-      S.resultats = data.entreprises; S.ouvert = null; S.centre = data.site;
+      let contacts = {};
+      try { contacts = (await api("contacts-site", null, { get: true })).contacts || {}; } catch (x) { /* sans info, ordre normal */ }
+      const ent = data.entreprises.map((e) => ({ ...e, contact: contacts[e.siret] || null }));
+      // les entreprises déjà contactées par un camarade passent en fin de liste
+      ent.sort((a, b) => (a.contact ? 1 : 0) - (b.contact ? 1 : 0) || (a.contact && b.contact ? a.contact.derniere.localeCompare(b.contact.derniere) : 0) || a.distance - b.distance);
+      S.resultats = ent; S.ouvert = null; S.centre = data.site;
       renderResultats();
       if (window.innerWidth < 900) $("#res").scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (e) {
@@ -545,14 +551,15 @@ ${nomComplet()}`;
   }
   function renderListe() {
     const deja = new Set(J.envois.map((e) => e.siret));
+    const premierContact = S.resultats.findIndex((x) => x.contact && !deja.has(x.siret));
     $("#liste").innerHTML = S.resultats.map((e, i) => {
       const q = encodeURIComponent(`${e.nom} ${e.adresse}`);
       const open = S.ouvert === e.siret, sent = deja.has(e.siret);
-      return `<li class="ent${open ? " open" : ""}" id="e-${e.siret}">
+      return `${i === premierContact && i > 0 ? `<li class="sep-contact">Entreprises déjà contactées récemment par d'autres stagiaires : à tenter en dernier.</li>` : ""}<li class="ent${open ? " open" : ""}${e.contact && !sent ? " contactee" : ""}" id="e-${e.siret}">
         <div class="ent-top">
           <div class="ent-main"><span class="ent-n">${i + 1}</span>
             <div><h3>${esc(e.nom)}</h3><div class="addr">${esc(e.adresse)}</div>
-              <div class="chips"><span class="chip dist">${e.distance} km</span>${e.effectif ? `<span class="chip">${esc(e.effectif)}</span>` : ""}</div></div>
+              <div class="chips"><span class="chip dist">${e.distance} km</span>${e.effectif ? `<span class="chip">${esc(e.effectif)}</span>` : ""}${e.contact && !sent ? `<span class="chip deja">Déjà contactée par ${e.contact.n > 1 ? e.contact.n + " stagiaires" : "un stagiaire"} de l'E2C ${quandJour(e.contact.derniere)}</span>` : ""}</div></div>
           </div>
           ${!sent && (J.prepares || []).some((x) => x.siret === e.siret) ? `<span class="chip prep">Préparé · envoyé ?</span>` : ""}
           ${sent ? `<span class="btn done">Envoyé ✓</span>` : `<button class="btn ${open ? "ghost" : "dark"}" data-ecrire="${e.siret}" type="button">${open ? "Fermer" : "Écrire"}</button>`}
