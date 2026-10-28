@@ -219,6 +219,21 @@ function needSite(me, site) {
   if (!sitesVisibles(me).includes(site)) fail(403, "Ce site ne fait pas partie de vos accès.");
 }
 
+// ---------- activité de l'équipe (visible par l'administrateur seulement) ----------
+async function traceEquipe(m, evt) {
+  try {
+    const p = `activite-equipe/${m.id}.json`, t = todayParis();
+    const a = (await store.getJSON(p)) || { id: m.id, jours: [] };
+    const nouveau = a.jours[a.jours.length - 1] !== t;
+    if (!nouveau && !evt) return;
+    Object.assign(a, { nom: m.nom, role: m.role, site: m.site || "", derniere: now() });
+    if (!a.premiere) a.premiere = a.derniere;
+    if (evt === "activation") a.active = a.derniere;
+    if (nouveau) { a.jours.push(t); a.jours = a.jours.slice(-120); }
+    await store.putJSON(p, a);
+  } catch (e) { /* ne bloque jamais la connexion */ }
+}
+
 // ---------- liens d'activation (usage unique, 7 jours) et demandes d'accès ----------
 const BASE_URL = process.env.PUBLIC_URL || "https://kit-prospection.vercel.app";
 async function creerLien(m, me) {
@@ -276,10 +291,12 @@ const actions = {
     const me = await findStaffByCode(b.code || "");
     if (!me) { await sleep(600); fail(401, "Code d'accès incorrect."); }
     const token = sign({ k: "s", id: me.id, nom: me.nom, role: me.role, site: me.site || "", src: me.source, h: me.hashReel || sha(normCode(b.code)), exp: Date.now() + 14 * 24 * 3600 * 1000 });
+    await traceEquipe(me);
     return { token, me: { nom: me.nom, role: me.role, roleNom: ROLES[me.role], site: me.site || "", sites: sitesVisibles(me).map((s) => [s, SITES[s]]), gere: peutGererFormateurs(me) } };
   },
   async "me-staff"(req, b, s) {
     const me = await needStaff(s);
+    await traceEquipe(me);
     return { me: { nom: me.nom, role: me.role, roleNom: ROLES[me.role], site: me.site || "", sites: sitesVisibles(me).map((x) => [x, SITES[x]]), gere: peutGererFormateurs(me) } };
   },
 
@@ -432,6 +449,23 @@ const actions = {
     }
     return { crees, existants, erreurs };
   },
+  async "activite-equipe"(req, b, s) {
+    const me = await needStaff(s);
+    if (me.role !== "admin") fail(403, "Réservé à l'administrateur.");
+    const paths = (await store.list("activite-equipe/")).filter((x) => x.endsWith(".json"));
+    const acts = new Map((await Promise.all(paths.map((x) => store.getJSON(x)))).filter(Boolean).map((a) => [a.id, a]));
+    const fichiers = (await fichiersStaff()).map((f) => f.rec);
+    const ids = new Set(fichiers.map((x) => x.id));
+    const marq = await Promise.all(seedStaff().map((x) => marqueur(x.id)));
+    const tous = [...seedStaff().filter((x, i) => !ids.has(x.id) && !(marq[i] || {}).desactive), ...fichiers].filter((x) => x.id !== me.id);
+    const t = todayParis(), il7 = ajouterJours(t, -6), il30 = ajouterJours(t, -29);
+    const invites = (await store.list("invites/")).length;
+    const lignes = tous.map((m) => { const a = acts.get(m.id) || { jours: [] };
+      return { nom: m.nom, role: ROLES[m.role], site: SITES[m.site] || "Tous", connecte: !!a.premiere, codePerso: fichiers.some((f) => f.id === m.id && f.maj),
+        premiere: a.premiere || "", derniere: a.derniere || "", jours7: a.jours.filter((d) => d >= il7).length, jours30: a.jours.filter((d) => d >= il30).length }; })
+      .sort((a, c) => (c.derniere || "").localeCompare(a.derniere || "") || a.nom.localeCompare(c.nom));
+    return { equipe: lignes, liensEnAttente: invites };
+  },
   async "reset-test"(req, b, s) {
     const me = await needStaff(s);
     needSite(me, b.site);
@@ -533,6 +567,7 @@ const actions = {
     const { p, m } = await lireLien(b.t);
     const h = await poserCode(m, b.code);
     await store.remove(p);
+    await traceEquipe(m, "activation");
     const token = sign({ k: "s", id: m.id, nom: m.nom, role: m.role, site: m.site || "", src: "blob", h, exp: Date.now() + 14 * 24 * 3600 * 1000 });
     return { token, me: { nom: m.nom, role: m.role, roleNom: ROLES[m.role], site: m.site || "", sites: sitesVisibles(m).map((x) => [x, SITES[x]]), gere: peutGererFormateurs(m) } };
   },
