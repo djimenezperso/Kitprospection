@@ -218,7 +218,15 @@
     const t = todayIso();
     const rel = J.envois.filter((e) => e.statut === "Envoyé" && e.relance <= t);
     const b = $("#j-banner");
-    if (rel.length) {
+    const prep = (J.prepares || []).filter((x) => !(S.attente && S.attente.siret === x.siret));
+    if (prep.length) {
+      b.hidden = false;
+      b.innerHTML = `<div class="prep-box"><b>Tu as préparé ${prep.length === 1 ? "un message" : prep.length + " messages"}. ${prep.length === 1 ? "L'as-tu envoyé ?" : "Les as-tu envoyés ?"}</b>
+        ${prep.map((x) => `<div class="prep-row"><span>${esc(x.entreprise)}${x.ville ? ` <span class="muted sm">· ${esc(x.ville)}</span>` : ""}</span>
+          <span class="prep-btns"><button class="btn dark sm" type="button" data-prep-oui="${esc(x.siret)}">Oui, envoyé</button><button class="btn ghost sm" type="button" data-prep-non="${esc(x.siret)}">Non</button></span></div>`).join("")}</div>`;
+      $$("[data-prep-oui]", b).forEach((x) => x.addEventListener("click", () => { const p = J.prepares.find((y) => y.siret === x.dataset.prepOui); if (p) envoyer({ siret: p.siret, nom: p.entreprise, adresse: p.adresse, ville: p.ville }); }));
+      $$("[data-prep-non]", b).forEach((x) => x.addEventListener("click", async () => { try { J = (await api("annule-prepare", { siret: x.dataset.prepNon })).jeune; majJeune(); if (S.resultats.length) renderListe(); } catch (e) { toast(e.message); } }));
+    } else if (rel.length) {
       b.hidden = false;
       b.innerHTML = `<span><b>${rel.length === 1 ? "1 relance à faire" : rel.length + " relances à faire"} aujourd'hui</b> : ${rel.map((e) => esc(e.entreprise)).join(", ")}.</span> <button class="btn dark sm" type="button" id="go-suivi">Voir les messages</button>`;
       $("#go-suivi").addEventListener("click", () => showSub("suivi"));
@@ -546,6 +554,7 @@ ${nomComplet()}`;
             <div><h3>${esc(e.nom)}</h3><div class="addr">${esc(e.adresse)}</div>
               <div class="chips"><span class="chip dist">${e.distance} km</span>${e.effectif ? `<span class="chip">${esc(e.effectif)}</span>` : ""}</div></div>
           </div>
+          ${!sent && (J.prepares || []).some((x) => x.siret === e.siret) ? `<span class="chip prep">Préparé · envoyé ?</span>` : ""}
           ${sent ? `<span class="btn done">Envoyé ✓</span>` : `<button class="btn ${open ? "ghost" : "dark"}" data-ecrire="${e.siret}" type="button">${open ? "Fermer" : "Écrire"}</button>`}
         </div>
         <div class="links">
@@ -586,8 +595,11 @@ ${nomComplet()}`;
       ${J.cv ? `<button class="btn ghost big" type="button" data-cv>Télécharger mon CV (${esc(J.cv.nom)})</button>
         <p class="hint">Dans ta messagerie, clique sur le trombone 📎 et choisis ce fichier (dossier « Téléchargements »).</p>`
         : `<p class="alert soft">Tu n'as pas encore déposé de CV. <a href="#" data-go-dossier>Déposer mon CV</a></p>`}
-      <div class="step"><i>4</i>C'est envoyé ?</div>
-      <button class="btn dark big" type="button" data-envoye="${e.siret}">J'ai envoyé ma candidature</button>
+      <div class="envoi-zone" id="zone-${e.siret}">
+        <div class="step"><i>4</i>C'est envoyé ?</div>
+        <p class="rappel-clic" hidden>⚠️ N'oublie pas : quand ton e-mail est parti, clique ici. Sinon tu risques d'écrire deux fois à la même entreprise.</p>
+        <button class="btn dark big" type="button" data-envoye="${e.siret}">J'ai envoyé ma candidature</button>
+      </div>
     </div>`;
   }
   function bindPanneau() {
@@ -599,8 +611,18 @@ ${nomComplet()}`;
     majLiens();
     ta.addEventListener("input", majLiens); obj.addEventListener("input", majLiens);
     $$("[data-go-dossier]").forEach((a) => a.addEventListener("click", (ev) => { ev.preventDefault(); showSub("dossier"); }));
+    const preparer = () => {
+      S.attente = { siret: e.siret, t: Date.now() };
+      const z = $("#zone-" + e.siret);
+      if (z) { z.classList.add("a-confirmer"); $(".rappel-clic", z).hidden = false; }
+      if (!(J.prepares || []).some((x) => x.siret === e.siret)) {
+        api("prepare", { siret: e.siret, entreprise: e.nom, adresse: e.adresse, ville: e.ville }).then((r) => { J = r.jeune; }).catch(() => {});
+      }
+    };
+    $$("[data-mail]").forEach((a) => a.addEventListener("click", preparer));
     $(`[data-copier="${e.siret}"]`).addEventListener("click", async (ev) => {
       const btn = ev.currentTarget;
+      preparer();
       const ok = await copier(ta.value);
       btn.textContent = ok ? "Lettre copiée ✓" : "Sélectionne le texte et fais Ctrl + C";
       if (ok) toast("Lettre copiée. Colle-la dans ta messagerie si besoin (Ctrl + V).");
@@ -609,16 +631,40 @@ ${nomComplet()}`;
     if (cvb) cvb.addEventListener("click", () => telecharger("cv-fichier", null, J.cv.nom).then(() => toast("CV téléchargé : joins-le au message.")).catch((x) => toast(x.message)));
     $(`[data-envoye="${e.siret}"]`).addEventListener("click", async (ev) => {
       const btn = ev.currentTarget; btn.disabled = true;
-      try {
-        J = (await api("envoi", { siret: e.siret, entreprise: e.nom, adresse: e.adresse, ville: e.ville })).jeune;
-        S.ouvert = null; majJeune(); renderListe(); renderMap();
-        const env = J.envois.find((x) => x.siret === e.siret);
-        const li = $("#e-" + e.siret);
-        if (li && env) li.insertAdjacentHTML("beforeend", `<div class="rappel-ok"><b>Bravo, c'est noté !</b> Ajoute le rappel de relance dans ton agenda (le ${fr(env.relance)}) : ${liensAgenda(evRelance(env), "relance-" + e.siret)}</div>`);
-        toast("Ajouté à « Mon suivi ».");
-      } catch (x) { toast(x.message); btn.disabled = false; }
+      if (!(await envoyer(e))) btn.disabled = false;
     });
   }
+  // confirmation d'envoi (bouton, question au retour, ou bandeau)
+  async function envoyer(e) {
+    try {
+      J = (await api("envoi", { siret: e.siret, entreprise: e.nom, adresse: e.adresse, ville: e.ville })).jeune;
+      if (S.attente && S.attente.siret === e.siret) S.attente = null;
+      if (S.ouvert === e.siret) S.ouvert = null;
+      majJeune();
+      if (S.resultats.length && !$("#sub-chercher").hidden) { renderListe(); renderMap(); }
+      const env = J.envois.find((x) => x.siret === e.siret);
+      const li = $("#e-" + e.siret);
+      if (li && env) li.insertAdjacentHTML("beforeend", `<div class="rappel-ok"><b>Bravo, c'est noté !</b> Ajoute le rappel de relance dans ton agenda (le ${fr(env.relance)}) : ${liensAgenda(evRelance(env), "relance-" + e.siret)}</div>`);
+      toast("C'est noté ✓ Ajouté à « Mon suivi ».");
+      return true;
+    } catch (x) { toast(x.message); return false; }
+  }
+  // au retour dans l'onglet après avoir ouvert sa messagerie : « as-tu envoyé ? »
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible" || !J || !S.attente) return;
+    if (Date.now() - S.attente.t < 4000 || dlg.open) return;
+    const a = S.attente;
+    if (J.envois.some((x) => x.siret === a.siret)) { S.attente = null; return; }
+    const e = S.resultats.find((x) => x.siret === a.siret) || (() => { const p = (J.prepares || []).find((x) => x.siret === a.siret); return p && { siret: p.siret, nom: p.entreprise, adresse: p.adresse, ville: p.ville }; })();
+    if (!e) return;
+    ouvrirDlg(`<h2>As-tu envoyé ta candidature ?</h2>
+      <p>Entreprise : <b>${esc(e.nom)}</b></p>
+      <p class="muted">Si tu l'as envoyée, dis-le maintenant : on la notera dans ton suivi et on te rappellera de relancer dans 7 jours.</p>
+      <div class="row-btns"><button class="btn primary big" type="button" id="q-oui">Oui, c'est envoyé</button><button class="btn ghost big" type="button" id="q-non">Pas encore</button></div>`, (root) => {
+      $("#q-oui", root).addEventListener("click", async () => { dlg.close(); await envoyer(e); });
+      $("#q-non", root).addEventListener("click", () => { dlg.close(); S.attente.t = Date.now(); });
+    });
+  });
   function ouvrir(siret, depuisCarte) {
     S.ouvert = S.ouvert === siret ? null : siret;
     renderListe(); renderMap();

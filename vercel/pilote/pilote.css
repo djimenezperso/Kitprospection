@@ -158,3 +158,13 @@ table.sans-site .col-site { display: none; }
 .deux-col h3 { font-size: 1rem; margin: 0 0 6px; }
 .liste-noms { list-style: none; margin: 0; padding: 0; max-height: 50vh; overflow: auto; }
 .liste-noms li { padding: 6px 0; border-bottom: 1px solid var(--line); }
+
+.envoi-zone { border-radius: 12px; transition: background .2s, box-shadow .2s; }
+.envoi-zone.a-confirmer { background: var(--warn-soft); box-shadow: 0 0 0 3px var(--warn-soft); padding: 4px 10px 12px; animation: pulse 1.6s ease-in-out 3; }
+@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 3px var(--warn-soft); } 50% { box-shadow: 0 0 0 7px rgba(154, 91, 0, .18); } }
+@media (prefers-reduced-motion: reduce) { .envoi-zone.a-confirmer { animation: none; } }
+.rappel-clic { margin: 4px 0 10px; font-weight: 600; color: var(--warn); font-size: .92rem; }
+.prep-box { width: 100%; display: flex; flex-direction: column; gap: 8px; }
+.prep-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; background: rgba(255,255,255,.6); border-radius: 10px; padding: 8px 10px; }
+.prep-btns { display: flex; gap: 6px; }
+.chip.prep { background: var(--warn-soft); color: var(--warn); font-weight: 600; }

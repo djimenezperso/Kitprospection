@@ -134,6 +134,7 @@ function vueJeune(j) {
     typ: j.typ || "", metier: j.metier || "", rayon: j.rayon || 3, lettre: j.lettre || "", objet: j.objet || "",
     cv: j.cv ? { nom: j.cv.nom, taille: j.cv.taille, date: j.cv.date } : null,
     envois: j.envois || [],
+    prepares: (j.prepares || []).filter((x) => !(j.envois || []).some((e) => e.siret === x.siret)),
   };
 }
 function resume(j) {
@@ -310,7 +311,29 @@ const actions = {
         relanceFaite: "", maj: now(),
       });
     }
+    j.prepares = (j.prepares || []).filter((x) => x.siret !== siret);
     activite(j); await saveJeune(j);
+    return { jeune: vueJeune(j) };
+  },
+  // message préparé (lettre copiée ou messagerie ouverte) mais pas encore confirmé comme envoyé
+  async prepare(req, b, s) {
+    needJeune(s);
+    const j = await loadJeune(s.site, s.key);
+    const siret = clean(b.siret, 20);
+    if (!siret) fail(400, "Entreprise manquante.");
+    j.prepares = j.prepares || [];
+    if (!(j.envois || []).some((e) => e.siret === siret) && !j.prepares.some((x) => x.siret === siret)) {
+      j.prepares.push({ siret, entreprise: clean(b.entreprise, 160), adresse: clean(b.adresse, 200), ville: clean(b.ville, 80), date: todayParis() });
+      j.prepares = j.prepares.slice(-30);
+      activite(j); await saveJeune(j);
+    }
+    return { jeune: vueJeune(j) };
+  },
+  async "annule-prepare"(req, b, s) {
+    needJeune(s);
+    const j = await loadJeune(s.site, s.key);
+    j.prepares = (j.prepares || []).filter((x) => x.siret !== b.siret);
+    await saveJeune(j);
     return { jeune: vueJeune(j) };
   },
   async statut(req, b, s) {
