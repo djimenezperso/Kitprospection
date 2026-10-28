@@ -36,6 +36,24 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
 
 <main class="wrap no-print" id="app">
   <!-- ===================== CONNEXION ===================== -->
+  <section id="v-activer" hidden>
+    <div class="hero">
+      <h1>Activer mon accès</h1>
+      <p id="act-sous">Vérification du lien…</p>
+    </div>
+    <form class="card act-card" id="f-activer" autocomplete="off" hidden>
+      <h2 id="act-nom"></h2>
+      <p class="muted" id="act-role"></p>
+      <p>Choisissez votre code personnel : au moins 8 lettres ou chiffres, facile à retenir pour vous mais difficile à deviner. Les majuscules, espaces et tirets ne comptent pas.</p>
+      <label>Mon code <input id="act-c1" autocomplete="new-password" spellcheck="false" required></label>
+      <label>Confirmer mon code <input id="act-c2" autocomplete="new-password" spellcheck="false" required></label>
+      <button class="btn primary big" type="submit">Activer mon accès</button>
+      <p class="form-err" id="act-err" role="alert" hidden></p>
+      <p class="hint">Ce lien ne fonctionne qu'une seule fois.</p>
+    </form>
+    <div class="card alert" id="act-ko" hidden></div>
+  </section>
+
   <section id="v-login" hidden>
     <div class="hero">
       <h1 id="login-titre">Bienvenue sur ton Kit de prospection.</h1>
@@ -68,7 +86,7 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
         </label>
         <button class="btn dark big" type="submit">Entrer dans l'espace équipe</button>
         <p class="form-err" id="ls-err" role="alert" hidden></p>
-        <p class="hint">Chaque personne a son propre code. Il ne se partage pas.</p>
+        <p class="hint">Chaque personne a son propre code. Il ne se partage pas. <a href="#" id="lien-oubli">Code oublié ?</a></p>
       </form>
     </div>
     <p class="muted center">Vous voulez seulement découvrir l'outil ? <a href="/">Ouvrir la démo</a></p>
@@ -234,6 +252,7 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
       <button class="btn ghost" type="button" id="btn-cartes">Cartes à imprimer</button>
       <button class="btn ghost" type="button" id="btn-qr">QR code du site</button>
       <button class="btn ghost" type="button" id="btn-equipe" hidden>Équipe et accès</button>
+      <button class="btn ghost" type="button" id="btn-demandes" hidden>Demandes d'accès <span class="pill" id="nb-demandes" hidden>0</span></button>
       <button class="btn ghost" type="button" id="btn-export">Export Excel</button>
     </div>
     <div class="card">

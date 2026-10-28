@@ -136,10 +136,10 @@
   const liensAgenda = (ev, nom) => `<a href="${gcal(ev)}" target="_blank" rel="noopener">Google Agenda</a> · <a href="${ics(ev)}" download="${nom}.ics">Autre agenda</a>`;
 
   // ---------- vues ----------
-  const VUES = ["login", "jeune", "equipe"];
+  const VUES = ["login", "jeune", "equipe", "activer"];
   function vue(n) {
     VUES.forEach((v) => { $("#v-" + v).hidden = v !== n; });
-    $("#who").hidden = n === "login";
+    $("#who").hidden = n === "login" || n === "activer";
     $("#btn-moncode").hidden = n !== "equipe";
     window.scrollTo({ top: 0 });
   }
@@ -741,6 +741,7 @@ ${nomComplet()}`;
     $("#e-titre").textContent = ME.sites.length > 1 ? "Les sites en un coup d'œil." : `E2C ${ME.sites[0][1]} : le groupe en un coup d'œil.`;
     $("#e-sous").textContent = "Qui avance, qui relance, qui n'a encore rien envoyé.";
     $("#btn-equipe").hidden = !ME.gere;
+    majDemandes();
     E.site = ME.sites.length > 1 ? "tous" : ME.sites[0][0];
     const nav = $("#e-sites");
     nav.hidden = ME.sites.length < 2;
@@ -1092,10 +1093,11 @@ ${nomComplet()}`;
     try {
       const r = await api("formateurs", null, { get: true });
       ouvrirDlg(`<h2>Équipe et accès</h2>
-        <p class="muted">Chaque formateur a son code personnel : il voit tous les jeunes de son site. Un code oublié ? « Nouveau code » en crée un autre (l'ancien ne marche plus). Chacun peut aussi choisir son propre code avec « Changer mon code », en haut de la page.</p>
+        <p class="muted">Chaque personne a son code personnel. Pour donner un accès (ou en cas d'oubli), créez un <b>lien d'activation</b> : la personne choisit elle-même son code. Le lien ne marche qu'une fois et expire au bout de 7 jours ; tant qu'il n'est pas utilisé, l'ancien code reste valable.</p>
+        <button class="btn primary" type="button" id="liens-tous">Liens d'activation pour toute mon équipe</button>
         <div class="table-wrap"><table><thead><tr><th>Nom</th><th>Rôle</th><th>Site</th><th></th></tr></thead><tbody>
         ${r.equipe.map((m) => `<tr><td><b>${esc(m.nom)}</b>${m.moi ? ` <span class="tag blue">vous</span>` : ""}</td><td>${esc(m.roleNom)}</td><td>${m.site ? esc(SITES[m.site]) : "Tous"}</td>
-          <td class="nowrap">${m.gerable ? `<button class="btn ghost sm" type="button" data-reset="${esc(m.id)}">Nouveau code</button> <button class="btn ghost sm danger" type="button" data-del="${esc(m.id)}">Désactiver</button>` : ""}</td></tr>`).join("")}
+          <td class="nowrap">${m.gerable ? `<button class="btn ghost sm" type="button" data-lien="${esc(m.id)}">Lien d'activation</button> <button class="btn ghost sm danger" type="button" data-del="${esc(m.id)}">Désactiver</button>` : ""}</td></tr>`).join("")}
         </tbody></table></div>
         <h3 class="mt">Ajouter un formateur</h3>
         <div class="add-form">
@@ -1104,10 +1106,11 @@ ${nomComplet()}`;
           <button class="btn primary" type="button" id="f-ok">Créer son accès</button>
         </div>
         <div id="f-res"></div>`, (root) => {
-        $$("[data-reset]", root).forEach((b) => b.addEventListener("click", async () => {
-          if (!confirmer("Créer un nouveau code ? L'ancien ne marchera plus.")) return;
-          try { const x = await api("reset-code", { id: b.dataset.reset }); afficherCode(root, x); } catch (e) { toast(e.message); }
+        $$("[data-lien]", root).forEach((b) => b.addEventListener("click", async () => {
+          try { const x = await api("lien-activation", { id: b.dataset.lien }); afficherLien($("#f-res", root), x); } catch (e) { toast(e.message); }
         }));
+        const tous = $("#liens-tous", root);
+        if (tous) tous.addEventListener("click", () => ouvrirLiensEquipe());
         $$("[data-del]", root).forEach((b) => b.addEventListener("click", async () => {
           if (!confirmer("Désactiver cet accès ?")) return;
           try { await api("suppr-formateur", { id: b.dataset.del }); toast("Accès désactivé."); ouvrirEquipe(); } catch (e) { toast(e.message); }
@@ -1123,6 +1126,135 @@ ${nomComplet()}`;
         });
       });
     } catch (e) { ouvrirDlg(`<p>${esc(e.message)}</p>`); }
+  }
+
+  const msgActivation = (x) => `Bonjour,
+
+Voici votre accès personnel au Kit de prospection assistée (E2C 92), pour suivre les stagiaires${x.site ? " du site de " + x.siteNom : ""}.
+
+Cliquez sur ce lien pour activer votre accès et choisir votre code personnel :
+${x.lien}
+
+Ce lien est personnel : il ne fonctionne qu'une seule fois et expire dans 7 jours. Ensuite, vous vous connecterez sur https://kit-prospection.vercel.app/pilote/ (cadre « Équipe E2C ») avec le code que vous aurez choisi.
+
+En cas d'oubli, cliquez sur « Code oublié ? » sur la page de connexion.
+
+Bien cordialement,
+${ME ? ME.nom.replace(/ \(.*\)/, "") : ""}`;
+  function afficherLien(zone, x) {
+    zone.innerHTML = `<div class="rappel-ok"><b>Lien d'activation pour ${esc(x.nom)}</b> <span class="muted sm">(${esc(x.roleNom)} · ${esc(x.siteNom)})</span>
+      <div class="lien-box"><code>${esc(x.lien)}</code></div>
+      <div class="row-btns"><button class="btn dark sm" type="button" data-cp="lien">Copier le lien</button><button class="btn ghost sm" type="button" data-cp="msg">Copier le message complet</button></div>
+      <p class="sm muted">Envoyez-le à cette personne seulement (e-mail, SMS…). Il ne marche qu'une fois et expire dans 7 jours.</p></div>`;
+    $("[data-cp=lien]", zone).addEventListener("click", async () => { if (await copier(x.lien)) toast("Lien copié."); });
+    $("[data-cp=msg]", zone).addEventListener("click", async () => { if (await copier(msgActivation(x))) toast("Message copié : collez-le dans un e-mail."); });
+    zone.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+  async function ouvrirLiensEquipe() {
+    ouvrirDlg(`<h2>Liens d'activation</h2><p class="muted">Création des liens…</p>`);
+    try {
+      const r = await api("liens-equipe", {});
+      ouvrirDlg(`<h2>Liens d'activation (${r.liens.length})</h2>
+        <p class="muted">Un lien personnel par personne. Copiez le message et envoyez-le à chacun séparément. Chaque lien ne marche qu'une fois et expire dans 7 jours ; créer de nouveaux liens n'annule pas les anciens codes tant qu'ils ne sont pas utilisés.</p>
+        <div class="table-wrap"><table><thead><tr><th>Personne</th><th>Site</th><th></th></tr></thead><tbody>
+        ${r.liens.map((x, i) => `<tr><td><b>${esc(x.nom)}</b><br><span class="muted sm">${esc(x.roleNom)}</span></td><td>${esc(x.siteNom)}</td>
+          <td class="nowrap"><button class="btn dark sm" type="button" data-m="${i}">Copier le message</button> <button class="btn ghost sm" type="button" data-l="${i}">Lien seul</button></td></tr>`).join("")}
+        </tbody></table></div>`, (root) => {
+        $$("[data-m]", root).forEach((b) => b.addEventListener("click", async () => { if (await copier(msgActivation(r.liens[+b.dataset.m]))) { b.textContent = "Copié ✓"; toast("Message copié : collez-le dans un e-mail."); } }));
+        $$("[data-l]", root).forEach((b) => b.addEventListener("click", async () => { if (await copier(r.liens[+b.dataset.l].lien)) { b.textContent = "Copié ✓"; } }));
+      });
+    } catch (e) { ouvrirDlg(`<p>${esc(e.message)}</p>`); }
+  }
+
+  // ----- demandes d'accès (code oublié) -----
+  $("#lien-oubli").addEventListener("click", (ev) => {
+    ev.preventDefault();
+    ouvrirDlg(`<h2>Code oublié</h2>
+      <p class="muted">Indiquez qui vous êtes. Votre demande sera vérifiée par votre responsable de site ou par l'administrateur, qui vous enverra un nouveau lien d'activation.</p>
+      <label>Prénom et nom <input id="o-nom" autocomplete="name"></label>
+      <label>Site <select id="o-site"><option value="">Choisissez…</option><option value="clichy">Clichy</option><option value="bagneux">Bagneux</option><option value="nanterre">Nanterre</option><option value="direction">Direction / tous les sites</option></select></label>
+      <label>Comment vous joindre (facultatif) <input id="o-contact" placeholder="téléphone ou e-mail"></label>
+      <label>Message (facultatif) <input id="o-msg"></label>
+      <button class="btn primary" type="button" id="o-ok">Envoyer la demande</button>
+      <p class="form-err" id="o-err" hidden></p>`, (root) => {
+      $("#o-ok", root).addEventListener("click", async () => {
+        const err = $("#o-err", root); err.hidden = true;
+        try {
+          await api("demande-acces", { nom: $("#o-nom", root).value, site: $("#o-site", root).value, contact: $("#o-contact", root).value, message: $("#o-msg", root).value });
+          $("#dlg-in").innerHTML = `<button class="dlg-x" type="button" aria-label="Fermer">×</button><h2>Demande envoyée</h2><p>Votre demande a été transmise. Vous serez contacté(e) pour vérifier votre identité, puis vous recevrez un nouveau lien d'activation.</p>`;
+          $(".dlg-x", dlg).addEventListener("click", () => dlg.close());
+        } catch (e) { err.textContent = e.message; err.hidden = false; }
+      });
+    });
+  });
+  async function majDemandes() {
+    if (!ME || !ME.gere) { $("#btn-demandes").hidden = true; return; }
+    try {
+      const r = await api("demandes", null, { get: true });
+      $("#btn-demandes").hidden = false;
+      const p = $("#nb-demandes"); p.textContent = r.enAttente; p.hidden = !r.enAttente;
+      return r;
+    } catch (e) { return null; }
+  }
+  $("#btn-demandes").addEventListener("click", ouvrirDemandes);
+  async function ouvrirDemandes() {
+    ouvrirDlg(`<h2>Demandes d'accès</h2><p class="muted">Chargement…</p>`);
+    const [r, eq] = await Promise.all([majDemandes(), api("formateurs", null, { get: true }).catch(() => ({ equipe: [] }))]);
+    if (!r) { ouvrirDlg(`<p>Impossible de charger les demandes.</p>`); return; }
+    const gerables = eq.equipe.filter((m) => m.gerable);
+    const proche = (d) => { const n = normTxt(d.nom).split(" "); const m = gerables.find((x) => n.every((w) => normTxt(x.nom).includes(w))) || gerables.find((x) => n.some((w) => w.length > 2 && normTxt(x.nom).includes(w))); return m ? m.id : ""; };
+    const dt = (iso) => new Date(iso).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+    ouvrirDlg(`<h2>Demandes d'accès</h2>
+      <p class="muted">Vérifiez l'identité de la personne (appel, en personne…) avant de valider. La validation crée un lien d'activation à lui transmettre ; son ancien code reste valable tant que le lien n'est pas utilisé.</p>
+      ${r.demandes.length ? r.demandes.map((d) => `<div class="demande${d.statut !== "en attente" ? " faite" : ""}" data-d="${esc(d.id)}">
+        <div><b>${esc(d.nom)}</b> · ${esc(d.siteNom)} <span class="muted sm">· ${dt(d.date)}</span>${d.statut !== "en attente" ? ` <span class="tag ${d.statut === "validée" ? "ok" : "bad"}">${esc(d.statut)} par ${esc(d.par)}</span>` : ""}</div>
+        ${d.contact ? `<div class="sm">Contact : ${esc(d.contact)}</div>` : ""}${d.message ? `<div class="sm muted">« ${esc(d.message)} »</div>` : ""}
+        ${d.statut === "en attente" ? `<div class="demande-actions"><select aria-label="Compte correspondant"><option value="">Compte de cette personne…</option>${gerables.map((m) => `<option value="${esc(m.id)}"${m.id === proche(d) ? " selected" : ""}>${esc(m.nom)} (${m.site ? esc(SITES[m.site]) : "tous"})</option>`).join("")}</select>
+          <button class="btn primary sm" type="button" data-ok>Valider</button><button class="btn ghost sm danger" type="button" data-ko>Refuser</button></div><div class="res"></div>` : ""}
+      </div>`).join("") : `<p class="muted">Aucune demande.</p>`}`, (root) => {
+      $$(".demande[data-d]", root).forEach((box) => {
+        const ok = $("[data-ok]", box), ko = $("[data-ko]", box);
+        if (ok) ok.addEventListener("click", async () => {
+          const membre = $("select", box).value;
+          if (!membre) { toast("Choisissez le compte de cette personne."); return; }
+          try { const x = await api("traiter-demande", { id: box.dataset.d, action: "valider", membre }); $(".demande-actions", box).remove(); afficherLien($(".res", box), x); majDemandes(); }
+          catch (e) { toast(e.message); }
+        });
+        if (ko) ko.addEventListener("click", async () => {
+          if (!confirmer("Refuser cette demande ?")) return;
+          try { await api("traiter-demande", { id: box.dataset.d, action: "refuser" }); toast("Demande refusée."); ouvrirDemandes(); } catch (e) { toast(e.message); }
+        });
+      });
+    });
+  }
+
+  // ----- page d'activation -----
+  async function initActivation(t) {
+    vue("activer");
+    try {
+      const r = await api("activer-info", { t }, { get: true });
+      $("#act-sous").textContent = "Bienvenue sur le Kit de prospection assistée.";
+      $("#act-nom").textContent = r.nom;
+      $("#act-role").textContent = `${r.roleNom} · ${r.siteNom}`;
+      $("#f-activer").hidden = false;
+      $("#f-activer").onsubmit = async (ev) => {
+        ev.preventDefault();
+        const a = $("#act-c1").value, b = $("#act-c2").value, err = $("#act-err"); err.hidden = true;
+        const n = (x) => x.toUpperCase().replace(/[^A-Z0-9]/g, "");
+        if (n(a).length < 8) { err.textContent = "Au moins 8 lettres ou chiffres."; err.hidden = false; return; }
+        if (n(a) !== n(b)) { err.textContent = "Les deux codes ne sont pas identiques."; err.hidden = false; return; }
+        try {
+          const x = await api("activer", { t, code: a });
+          ls.set(TK, x.token); ls.set(KIND, "s");
+          history.replaceState(null, "", "/pilote/");
+          startEquipe(x.me); toast("Accès activé ✓ Retenez bien votre code.");
+        } catch (e) { err.textContent = e.message; err.hidden = false; }
+      };
+    } catch (e) {
+      $("#act-sous").textContent = "";
+      $("#act-ko").innerHTML = `${esc(e.message)}<br><br><a href="/pilote/">Aller à la page de connexion</a>`;
+      $("#act-ko").hidden = false;
+    }
   }
 
   function afficherCode(root, x, cree) {
@@ -1164,6 +1296,8 @@ ${nomComplet()}`;
   // DÉMARRAGE
   // =====================================================================
   (async function boot() {
+    const act = params.get("activer");
+    if (act) return initActivation(act);
     const t = ls.get(TK), k = ls.get(KIND);
     if (!t) return initLogin();
     try {
