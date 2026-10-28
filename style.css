@@ -157,3 +157,6 @@ details.rel .row { display: flex; gap: 8px; flex-wrap: wrap; }
 .pin { background: var(--ink); color: #fff; border: 2px solid #fff; border-radius: 50%; width: 26px !important; height: 26px !important; display: grid; place-items: center; font-weight: 700; font-size: 12px; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
 .pin.on { background: var(--accent); }
 .pin-site { background: var(--accent); border: 3px solid #fff; border-radius: 6px; width: 22px !important; height: 22px !important; box-shadow: 0 2px 6px rgba(0,0,0,.35); }
+
+.seg-lien { display: inline-flex; align-items: center; padding: 8px 12px; min-height: 40px; border-radius: 999px; font-weight: 600; font-size: .92rem; color: var(--ink-2); text-decoration: none; white-space: nowrap; }
+.seg-lien:hover { background: var(--card); color: var(--ink); }
