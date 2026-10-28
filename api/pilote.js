@@ -148,6 +148,8 @@ function resume(j) {
     reponses, entretiens: env.filter((e) => e.statut === "Entretien obtenu").length,
     pris: env.filter((e) => e.statut === "Pris(e)").length, aRelancer,
     derniere: j.vu || "", cree: j.cree || "",
+    connecte: !!(j.premiere || j.vu),
+    actif7: (j.jours || []).some((d) => d >= ajouterJours(t, -6)) || (j.vu || "").slice(0, 10) >= ajouterJours(t, -6),
   };
 }
 function relanceDate(iso) {
@@ -378,6 +380,15 @@ const actions = {
       crees.push({ prenom, nom, ident, code, site: b.site });
     }
     return { crees, existants, erreurs };
+  },
+  async "reset-activite"(req, b, s) {
+    const me = await needStaff(s);
+    if (me.role !== "admin") fail(403, "Réservé à l'administrateur.");
+    needSite(me, b.site);
+    const j = await loadJeune(b.site, b.key);
+    delete j.premiere; delete j.vu; delete j.jours;
+    await saveJeune(j);
+    return { ok: true };
   },
   async "maj-jeune"(req, b, s) {
     const me = await needStaff(s);

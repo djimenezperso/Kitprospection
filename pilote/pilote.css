@@ -149,3 +149,12 @@ table.sans-site .col-site { display: none; }
 .axe span { flex: 1; text-align: center; font-size: .72rem; color: var(--muted); }
 .st-table td.num, .st-table th.num { text-align: right; }
 .note { font-size: .84rem; color: var(--muted); background: var(--soft); border-radius: 12px; padding: 10px 12px; }
+
+.tile.clic { cursor: pointer; transition: background .15s; }
+.tile.clic:hover, .tile.clic:focus { background: var(--line); }
+.tile.clic span::after { content: " ›"; font-weight: 700; }
+.deux-col { display: grid; gap: 16px; }
+@media (min-width: 640px) { .deux-col { grid-template-columns: 1fr 1fr; } }
+.deux-col h3 { font-size: 1rem; margin: 0 0 6px; }
+.liste-noms { list-style: none; margin: 0; padding: 0; max-height: 50vh; overflow: auto; }
+.liste-noms li { padding: 6px 0; border-bottom: 1px solid var(--line); }
