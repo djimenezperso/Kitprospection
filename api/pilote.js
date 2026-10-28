@@ -219,6 +219,30 @@ function needSite(me, site) {
   if (!sitesVisibles(me).includes(site)) fail(403, "Ce site ne fait pas partie de vos accès.");
 }
 
+// ---------- liens d'activation (usage unique, 7 jours) et demandes d'accès ----------
+const BASE_URL = process.env.PUBLIC_URL || "https://kit-prospection.vercel.app";
+async function creerLien(m, me) {
+  const t = crypto.randomBytes(24).toString("base64url");
+  await store.putJSON(`invites/${sha(t)}.json`, { id: m.id, exp: Date.now() + 7 * 24 * 3600 * 1000, par: me.nom, cree: now() });
+  return `${BASE_URL}/pilote/?activer=${t}`;
+}
+async function lireLien(t) {
+  if (!/^[A-Za-z0-9_-]{20,64}$/.test(String(t || ""))) fail(400, "Lien invalide.");
+  const p = `invites/${sha(t)}.json`;
+  const inv = await store.getJSON(p);
+  if (!inv) fail(410, "Ce lien a déjà été utilisé ou n'existe pas. Demandez-en un nouveau.");
+  if (inv.exp < Date.now()) { await store.remove(p); fail(410, "Ce lien a expiré. Demandez-en un nouveau."); }
+  const m = await membre(inv.id);
+  if (!m) fail(410, "Ce compte n'existe plus.");
+  return { p, inv, m };
+}
+const voitDemande = (me, d) => me.role === "admin" || me.role === "global" || (me.role === "responsable" && d.site === me.site);
+async function toutesDemandes() {
+  const paths = (await store.list("demandes/")).filter((x) => x.endsWith(".json"));
+  const recs = await Promise.all(paths.map((x) => store.getJSON(x)));
+  return paths.map((p, i) => ({ p, d: recs[i] })).filter((x) => x.d);
+}
+
 const actions = {
   // vérification technique du stockage (écriture + lecture), sans données personnelles
   async sante() {
@@ -464,6 +488,73 @@ const actions = {
     for (const f of await fichiersStaff()) if (f.rec.id === m.id) await store.remove(f.p);
     if (estFixe(m.id)) await store.putJSON(`remplace/${m.id}.json`, { date: now(), desactive: true, par: me.nom });
     return { ok: true };
+  },
+  async "lien-activation"(req, b, s) {
+    const me = await needStaff(s);
+    const m = await membre(String(b.id || ""));
+    if (!m) fail(404, "Compte introuvable.");
+    if (!peutGerer(me, m)) fail(403, "Vous ne pouvez pas gérer ce compte.");
+    return { nom: m.nom, roleNom: ROLES[m.role], site: m.site || "", siteNom: SITES[m.site] || "Tous les sites", lien: await creerLien(m, me) };
+  },
+  async "liens-equipe"(req, b, s) { // tous les comptes que je gère
+    const me = await needStaff(s);
+    if (!peutGererFormateurs(me)) fail(403, "Réservé aux responsables.");
+    const fichiers = (await fichiersStaff()).map((f) => f.rec);
+    const ids = new Set(fichiers.map((x) => x.id));
+    const marq = await Promise.all(seedStaff().map((x) => marqueur(x.id)));
+    const tous = [...seedStaff().filter((x, i) => !ids.has(x.id) && !(marq[i] || {}).desactive), ...fichiers]
+      .filter((m) => peutGerer(me, m) && (!b.site || m.site === b.site));
+    const out = [];
+    for (const m of tous) out.push({ nom: m.nom, roleNom: ROLES[m.role], site: m.site || "", siteNom: SITES[m.site] || "Tous les sites", lien: await creerLien(m, me) });
+    const ordre = { global: 0, responsable: 1, formateur: 2 };
+    out.sort((a, c) => (a.site || "").localeCompare(c.site || "") || a.nom.localeCompare(c.nom));
+    return { liens: out };
+  },
+  async "activer-info"(req, b) {
+    const { m, inv } = await lireLien(b.t);
+    return { nom: m.nom, roleNom: ROLES[m.role], siteNom: SITES[m.site] || "Tous les sites", expire: new Date(inv.exp).toISOString() };
+  },
+  async activer(req, b) {
+    const { p, m } = await lireLien(b.t);
+    const h = await poserCode(m, b.code);
+    await store.remove(p);
+    const token = sign({ k: "s", id: m.id, nom: m.nom, role: m.role, site: m.site || "", src: "blob", h, exp: Date.now() + 14 * 24 * 3600 * 1000 });
+    return { token, me: { nom: m.nom, role: m.role, roleNom: ROLES[m.role], site: m.site || "", sites: sitesVisibles(m).map((x) => [x, SITES[x]]), gere: peutGererFormateurs(m) } };
+  },
+  async "demande-acces"(req, b) {
+    const nom = clean(b.nom, 80), site = SITES[b.site] ? b.site : (b.site === "direction" ? "direction" : "");
+    if (nom.length < 3 || !site) fail(400, "Indiquez votre nom et votre site.");
+    const recentes = (await toutesDemandes()).filter((x) => x.d.statut === "en attente");
+    if (recentes.length > 50) fail(429, "Trop de demandes en attente. Contactez directement votre responsable.");
+    const id = Date.now().toString(36) + crypto.randomBytes(4).toString("hex");
+    await store.putJSON(`demandes/${id}.json`, { id, nom, site, contact: clean(b.contact, 120), message: clean(b.message, 400), date: now(), statut: "en attente" });
+    return { ok: true };
+  },
+  async demandes(req, b, s) {
+    const me = await needStaff(s);
+    if (!peutGererFormateurs(me)) return { demandes: [], enAttente: 0 };
+    const ds = (await toutesDemandes()).map((x) => x.d).filter((d) => voitDemande(me, d))
+      .sort((a, c) => (a.statut === "en attente" ? 0 : 1) - (c.statut === "en attente" ? 0 : 1) || c.date.localeCompare(a.date)).slice(0, 60);
+    return { demandes: ds.map((d) => ({ ...d, siteNom: SITES[d.site] || "Direction / tous les sites" })), enAttente: ds.filter((d) => d.statut === "en attente").length };
+  },
+  async "traiter-demande"(req, b, s) {
+    const me = await needStaff(s);
+    const f = (await toutesDemandes()).find((x) => x.d.id === b.id);
+    if (!f || !voitDemande(me, f.d)) fail(404, "Demande introuvable.");
+    if (f.d.statut !== "en attente") fail(400, "Cette demande a déjà été traitée.");
+    const d = f.d;
+    if (b.action === "refuser") {
+      Object.assign(d, { statut: "refusée", par: me.nom, traitee: now() });
+      await store.putJSON(f.p, d);
+      return { ok: true };
+    }
+    const m = await membre(String(b.membre || ""));
+    if (!m) fail(400, "Choisissez le compte de cette personne.");
+    if (!peutGerer(me, m)) fail(403, "Vous ne pouvez pas gérer ce compte.");
+    const lien = await creerLien(m, me);
+    Object.assign(d, { statut: "validée", par: me.nom, traitee: now(), compte: m.nom });
+    await store.putJSON(f.p, d);
+    return { nom: m.nom, roleNom: ROLES[m.role], siteNom: SITES[m.site] || "Tous les sites", lien };
   },
   async "mon-code"(req, b, s) {
     const me = await needStaff(s);
