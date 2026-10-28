@@ -130,7 +130,7 @@ const jeuneKey = (site, ident) => hmac(site + ":" + normIdent(ident)).slice(0, 3
 const jeunePath = (site, key) => `jeunes/${site}/${key}.json`;
 function vueJeune(j) {
   return {
-    site: j.site, siteNom: SITES[j.site], prenom: j.prenom, nom: j.nom, ident: j.ident, genre: j.genre || "",
+    site: j.site, siteNom: SITES[j.site], prenom: j.prenom, nom: j.nom, ident: j.ident, test: !!j.test, genre: j.genre || "",
     typ: j.typ || "", metier: j.metier || "", rayon: j.rayon || 3, lettre: j.lettre || "", objet: j.objet || "",
     cv: j.cv ? { nom: j.cv.nom, taille: j.cv.taille, date: j.cv.date } : null,
     envois: j.envois || [],
@@ -143,7 +143,7 @@ function resume(j) {
   const aRelancer = env.filter((e) => e.statut === "Envoyé" && e.relance && e.relance <= t).length;
   const reponses = env.filter((e) => !["Envoyé", "Relancé"].includes(e.statut)).length;
   return {
-    key: j.key, site: j.site, prenom: j.prenom, nom: j.nom, ident: j.ident, code: j.code || "", groupe: j.groupe || "", formateur: j.formateur || "",
+    key: j.key, site: j.site, prenom: j.prenom, nom: j.nom, ident: j.ident, test: !!j.test, code: j.code || "", groupe: j.groupe || "", formateur: j.formateur || "",
     metier: j.metier || "", typ: j.typ || "", cv: !!j.cv, lettre: !!(j.lettre && j.lettre.trim()),
     envois: env.length, relances: env.filter((e) => e.relanceFaite || e.statut === "Relancé").length,
     reponses, entretiens: env.filter((e) => e.statut === "Entretien obtenu").length,
@@ -261,6 +261,10 @@ const actions = {
     p = simple(p); n = simple(n.join(""));
     if (!p || !n) fail(400, "Écris ton identifiant sous la forme prénom.nom");
     let j = await store.getJSON(jeunePath(site, jeuneKey(site, p + "." + n)));
+    if (!j && p === "test" && n === simple(site)) { // compte de démonstration du site, créé à la première connexion
+      const ident = "test." + simple(site);
+      j = { key: jeuneKey(site, ident), site, prenom: "Test", nom: SITES[site], ident, test: true, groupe: "Démo équipe", envois: [], cree: now() };
+    }
     if (!j) j = await rechercheTolerante(site, p, n);
     if (!j) { await sleep(500); fail(401, "Identifiant inconnu sur ce site. Vérifie le site et l'orthographe, ou demande à ton formateur."); }
     const key = j.key;
@@ -405,7 +409,7 @@ const actions = {
     const me = await needStaff(s);
     const sites = b.site && b.site !== "tous" ? [b.site] : sitesVisibles(me);
     sites.forEach((x) => needSite(me, x));
-    let js = await jeunesDe(sites);
+    let js = (await jeunesDe(sites)).filter((j) => !j.test);
     if (b.groupe) js = js.filter((j) => (j.groupe || "") === b.groupe);
     return { sites: sites.map((x) => [x, SITES[x]]), stats: calculerStats(js) };
   },
@@ -427,6 +431,17 @@ const actions = {
       crees.push({ prenom, nom, ident, code, site: b.site });
     }
     return { crees, existants, erreurs };
+  },
+  async "reset-test"(req, b, s) {
+    const me = await needStaff(s);
+    needSite(me, b.site);
+    const j = await loadJeune(b.site, b.key);
+    if (!j.test) fail(400, "Réservé aux comptes de test.");
+    if (j.cv && j.cv.path) await store.remove(j.cv.path);
+    Object.assign(j, { envois: [], prepares: [], cv: null, lettre: "", objet: "", metier: "", typ: "", genre: "", jours: [] });
+    delete j.premiere; delete j.vu;
+    await saveJeune(j);
+    return { ok: true };
   },
   async "reset-activite"(req, b, s) {
     const me = await needStaff(s);
@@ -698,6 +713,7 @@ async function exporter(req, res, s) {
     const paths = (await store.list(`jeunes/${site}/`)).filter((p) => p.endsWith(".json"));
     (await Promise.all(paths.map((p) => store.getJSON(p)))).filter(Boolean).forEach((j) => tous.push(j));
   }
+  for (let i = tous.length - 1; i >= 0; i--) if (tous[i].test) tous.splice(i, 1);
   tous.sort((a, c) => a.site.localeCompare(c.site) || a.nom.localeCompare(c.nom));
   const R = tous.map((j) => [j, resume(j)]);
   const synth = [["Site", "Jeunes", "Jeunes ayant envoyé au moins 1 candidature", "Candidatures envoyées", "Moyenne par jeune", "Relances faites", "Réponses", "Entretiens", "Stages / contrats trouvés"]];

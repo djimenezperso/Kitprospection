@@ -203,8 +203,8 @@
     J = j;
     vue("jeune");
     $("#who-txt").textContent = `${J.prenom} · E2C ${J.siteNom}`;
-    $("#j-hello").textContent = `Bonjour ${J.prenom} !`;
-    $("#j-sous").textContent = `E2C ${J.siteNom}. Prépare ton dossier, cherche, envoie, relance.`;
+    $("#j-hello").textContent = J.test ? "Compte de démonstration" : `Bonjour ${J.prenom} !`;
+    $("#j-sous").textContent = J.test ? `E2C ${J.siteNom} · Vous voyez exactement ce que voit un stagiaire. Ce compte est partagé par l'équipe et n'entre pas dans les statistiques : n'y mettez pas de vraies données.` : `E2C ${J.siteNom}. Prépare ton dossier, cherche, envoie, relance.`;
     remplirDossier();
     const pret = !!J.cv && !!(J.lettre || "").trim();
     showSub(pret ? (J.envois.length ? "suivi" : "chercher") : "dossier");
@@ -780,17 +780,18 @@ ${nomComplet()}`;
   }
   function renderEquipe() {
     const js = jeunesFiltres(), multi = E.site === "tous" && ME.sites.length > 1;
-    const sum = (k) => js.reduce((a, j) => a + j[k], 0);
-    $("#c-jeunes").textContent = js.length; $("#c-env").textContent = sum("envois"); $("#c-rep").textContent = sum("reponses"); $("#c-rel").textContent = sum("aRelancer");
+    const vrais = js.filter((j) => !j.test);
+    const sum = (k) => vrais.reduce((a, j) => a + j[k], 0);
+    $("#c-jeunes").textContent = vrais.length; $("#c-env").textContent = sum("envois"); $("#c-rep").textContent = sum("reponses"); $("#c-rel").textContent = sum("aRelancer");
     $("#c-table").classList.toggle("sans-site", !multi);
     $("#c-vide").hidden = js.length > 0; $("#c-table").hidden = js.length === 0;
     $("#c-vide p").textContent = E.jeunes.length ? "Aucun jeune ne correspond à ces filtres." : "Aucun jeune pour le moment. Cliquez sur « + Ajouter des jeunes ».";
-    const sans = js.filter((j) => j.envois === 0);
+    const sans = vrais.filter((j) => j.envois === 0);
     $("#c-alerte").hidden = !sans.length || !js.length;
-    $("#c-alerte").textContent = sans.length === js.length ? "Personne n'a encore envoyé de candidature." : `Pas encore d'envoi : ${sans.map((j) => j.prenom + " " + (j.nom || "").slice(0, 1) + ".").join(", ")} — un coup de main peut être utile.`;
+    $("#c-alerte").textContent = sans.length === vrais.length ? "Personne n'a encore envoyé de candidature." : `Pas encore d'envoi : ${sans.map((j) => j.prenom + " " + (j.nom || "").slice(0, 1) + ".").join(", ")} — un coup de main peut être utile.`;
     E.vus = js;
-    $("#c-table tbody").innerHTML = js.map((j, i) => `<tr data-i="${i}" tabindex="0" class="${j.envois === 0 ? "flag" : ""}">
-      <td><b>${esc(j.prenom)} ${esc(j.nom)}</b><br><span class="muted sm">${esc(j.ident)}${j.groupe ? " · gr. " + esc(j.groupe) : ""}${j.formateur ? " · " + esc(j.formateur) : ""}</span></td>
+    $("#c-table tbody").innerHTML = js.map((j, i) => `<tr data-i="${i}" tabindex="0" class="${j.envois === 0 && !j.test ? "flag" : ""}">
+      <td><b>${esc(j.prenom)} ${esc(j.nom)}</b>${j.test ? ` <span class="tag blue">Compte test</span>` : ""}<br><span class="muted sm">${esc(j.ident)}${j.groupe ? " · gr. " + esc(j.groupe) : ""}${j.formateur ? " · " + esc(j.formateur) : ""}</span></td>
       <td class="col-site">${esc(SITES[j.site])}</td>
       <td>${esc(metierLabel(j.metier) || "—")}</td>
       <td class="nowrap"><span class="tag ${j.cv ? "ok" : "bad"}">CV</span> <span class="tag ${j.lettre ? "ok" : "bad"}">Lettre</span></td>
@@ -948,13 +949,19 @@ ${nomComplet()}`;
         </tbody></table></div>` : `<p class="muted">Aucune candidature pour le moment.</p>`}
         <div class="dlg-foot">
           <button class="btn ghost sm" type="button" id="d-carte">Imprimer sa carte</button>
-          ${ME.role === "admin" && r.resume.connecte ? `<button class="btn ghost sm" type="button" id="d-reset">Effacer sa connexion (test)</button>` : ""}
+          ${ME.role === "admin" && r.resume.connecte && !d.test ? `<button class="btn ghost sm" type="button" id="d-reset">Effacer sa connexion (test)</button>` : ""}
+          ${d.test ? `<button class="btn ghost sm" type="button" id="d-reset-test">Remettre à zéro le compte test</button>` : ""}
           ${ME.gere ? `<button class="btn ghost sm danger" type="button" id="d-suppr">Retirer ce jeune</button>` : ""}
         </div>`, (root) => {
         const cv = $("#d-cv", root); if (cv) cv.addEventListener("click", () => telecharger("cv-fichier", { site: d.site, key: d.key }, d.cv.nom).catch((e) => toast(e.message)));
         const lt = $("#d-lettre", root); if (lt) lt.addEventListener("click", () => { const p = $("#d-lettre-txt", root); p.hidden = !p.hidden; });
         $("#d-form-ok", root).addEventListener("click", async () => {
           try { await api("maj-jeune", { site: d.site, key: d.key, formateur: $("#d-form", root).value }); toast("Enregistré ✓"); chargerJeunes(); } catch (e) { toast(e.message); }
+        });
+        const rt = $("#d-reset-test", root);
+        if (rt) rt.addEventListener("click", async () => {
+          if (!confirmer("Vider le compte test (CV, lettre, candidatures) ?")) return;
+          try { await api("reset-test", { site: d.site, key: d.key }); toast("Compte test remis à zéro."); dlg.close(); chargerJeunes(); } catch (e) { toast(e.message); }
         });
         const rs = $("#d-reset", root);
         if (rs) rs.addEventListener("click", async () => {
