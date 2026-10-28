@@ -178,3 +178,6 @@ table.sans-site .col-site { display: none; }
 .demande-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .demande-actions select { width: auto; flex: 1; min-width: 180px; }
 #btn-demandes .pill { background: var(--accent); color: #fff; }
+
+.c-q { border: 1px solid var(--line); background: #fcfbf8; border-radius: 10px; padding: 10px 12px; min-height: 44px; width: 100%; }
+.check-list .check[hidden] { display: none; }
