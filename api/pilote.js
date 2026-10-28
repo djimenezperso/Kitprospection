@@ -219,6 +219,18 @@ function needSite(me, site) {
   if (!sitesVisibles(me).includes(site)) fail(403, "Ce site ne fait pas partie de vos accès.");
 }
 
+// ---------- entreprises déjà contactées par le site (pour répartir les candidatures) ----------
+const CONTACT_JOURS = 60;
+async function noterContact(site, siret, key) {
+  try {
+    const p = `contacts/${site}.json`, t = todayParis(), lim = ajouterJours(t, -CONTACT_JOURS);
+    const c = (await store.getJSON(p)) || {};
+    for (const k of Object.keys(c)) { c[k] = c[k].filter((x) => x.d >= lim); if (!c[k].length) delete c[k]; }
+    c[siret] = (c[siret] || []).filter((x) => x.k !== key).concat([{ d: t, k: key }]);
+    await store.putJSON(p, c);
+  } catch (e) { /* non bloquant */ }
+}
+
 // ---------- activité de l'équipe (visible par l'administrateur seulement) ----------
 async function traceEquipe(m, evt) {
   try {
@@ -357,10 +369,21 @@ const actions = {
       });
     }
     j.prepares = (j.prepares || []).filter((x) => x.siret !== siret);
+    if (!j.test) await noterContact(j.site, siret, j.key);
     activite(j); await saveJeune(j);
     return { jeune: vueJeune(j) };
   },
   // message préparé (lettre copiée ou messagerie ouverte) mais pas encore confirmé comme envoyé
+  async "contacts-site"(req, b, s) {
+    needJeune(s);
+    const c = (await store.getJSON(`contacts/${s.site}.json`)) || {};
+    const lim = ajouterJours(todayParis(), -CONTACT_JOURS), out = {};
+    for (const [siret, l] of Object.entries(c)) {
+      const autres = l.filter((x) => x.k !== s.key && x.d >= lim);
+      if (autres.length) out[siret] = { n: autres.length, derniere: autres.map((x) => x.d).sort().pop() };
+    }
+    return { contacts: out };
+  },
   async prepare(req, b, s) {
     needJeune(s);
     const j = await loadJeune(s.site, s.key);
