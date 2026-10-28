@@ -1152,11 +1152,16 @@ En cas d'oubli, cliquez sur « Code oublié ? » sur la page de connexion.
 
 Bien cordialement,
 ${ME ? ME.nom.replace(/ \(.*\)/, "") : ""}`;
-  const mailtoActivation = (x) => `mailto:?subject=${encodeURIComponent("Votre accès au Kit de prospection assistée")}&body=${encodeURIComponent(msgActivation(x))}`;
+  const OBJ_ACT = "Votre accès au Kit de prospection assistée";
+  const liensMailAct = (x) => { const su = encodeURIComponent(OBJ_ACT), b = encodeURIComponent(msgActivation(x)); return {
+    o365: `https://outlook.office.com/mail/deeplink/compose?subject=${su}&body=${b}`,
+    gmail: `https://mail.google.com/mail/?view=cm&fs=1&su=${su}&body=${b}`,
+    autre: `mailto:?subject=${su}&body=${b}` }; };
+  const boutonsMailAct = (x, i) => { const l = liensMailAct(x); return `<a class="btn dark sm" data-mail-i="${i}" href="${l.o365}" target="_blank" rel="noopener">Outlook (web)</a> <a class="btn ghost sm" data-mail-i="${i}" href="${l.gmail}" target="_blank" rel="noopener">Gmail</a>`; };
   function afficherLien(zone, x) {
     zone.innerHTML = `<div class="rappel-ok"><b>Lien d'activation pour ${esc(x.nom)}</b> <span class="muted sm">(${esc(x.roleNom)} · ${esc(x.siteNom)})</span>
       <div class="lien-box"><code>${esc(x.lien)}</code></div>
-      <div class="row-btns"><a class="btn dark sm" href="${mailtoActivation(x)}">Écrire l'e-mail</a><button class="btn ghost sm" type="button" data-cp="lien">Copier le lien</button><button class="btn ghost sm" type="button" data-cp="msg">Copier le message complet</button></div>
+      <div class="row-btns">${boutonsMailAct(x, 0)}<button class="btn ghost sm" type="button" data-cp="lien">Copier le lien</button><button class="btn ghost sm" type="button" data-cp="msg">Copier le message complet</button></div>
       <p class="sm muted">Envoyez-le à cette personne seulement (e-mail, SMS…). Il ne marche qu'une fois et expire dans 7 jours.</p></div>`;
     $("[data-cp=lien]", zone).addEventListener("click", async () => { if (await copier(x.lien)) toast("Lien copié."); });
     $("[data-cp=msg]", zone).addEventListener("click", async () => { if (await copier(msgActivation(x))) toast("Message copié : collez-le dans un e-mail."); });
@@ -1167,12 +1172,12 @@ ${ME ? ME.nom.replace(/ \(.*\)/, "") : ""}`;
     try {
       const r = await api("liens-equipe", {});
       ouvrirDlg(`<h2>Liens d'activation (${r.liens.length})</h2>
-        <p class="muted">Un lien personnel par personne. « Écrire l'e-mail » ouvre votre messagerie avec l'objet et le message déjà remplis : ajoutez l'adresse de la personne et envoyez. Chaque lien ne marche qu'une fois et expire dans 7 jours ; créer de nouveaux liens n'annule pas les anciens codes tant qu'ils ne sont pas utilisés.</p>
+        <p class="muted">Un lien personnel par personne. « Outlook (web) » ou « Gmail » ouvre un nouvel e-mail dans votre navigateur, avec l'objet et le message déjà remplis : ajoutez l'adresse de la personne et envoyez. Sinon, « Copier le message ». Chaque lien ne marche qu'une fois et expire dans 7 jours ; créer de nouveaux liens n'annule pas les anciens codes tant qu'ils ne sont pas utilisés.</p>
         <div class="table-wrap"><table><thead><tr><th>Personne</th><th>Site</th><th></th></tr></thead><tbody>
         ${r.liens.map((x, i) => `<tr><td><b>${esc(x.nom)}</b><br><span class="muted sm">${esc(x.roleNom)}</span></td><td>${esc(x.siteNom)}</td>
-          <td class="nowrap"><a class="btn dark sm" data-mail-i="${i}" href="${mailtoActivation(x)}">Écrire l'e-mail</a> <button class="btn ghost sm" type="button" data-m="${i}">Copier le message</button></td></tr>`).join("")}
+          <td class="nowrap">${boutonsMailAct(x, i)} <button class="btn ghost sm" type="button" data-m="${i}">Copier le message</button></td></tr>`).join("")}
         </tbody></table></div>`, (root) => {
-        $$("[data-mail-i]", root).forEach((b) => b.addEventListener("click", () => { b.textContent = "Ouvert ✓"; b.classList.replace("dark", "ghost"); }));
+        $$("[data-mail-i]", root).forEach((b) => b.addEventListener("click", () => { const tr = b.closest("tr"); if (tr) tr.classList.add("envoye-ok"); }));
         $$("[data-m]", root).forEach((b) => b.addEventListener("click", async () => { if (await copier(msgActivation(r.liens[+b.dataset.m]))) { b.textContent = "Copié ✓"; toast("Message copié : collez-le dans un e-mail."); } }));
         $$("[data-l]", root).forEach((b) => b.addEventListener("click", async () => { if (await copier(r.liens[+b.dataset.l].lien)) { b.textContent = "Copié ✓"; } }));
       });
