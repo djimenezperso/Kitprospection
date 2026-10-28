@@ -868,10 +868,27 @@ ${nomComplet()}`;
       $$("[data-k]", root).forEach((x) => x.addEventListener("click", (ev) => { ev.preventDefault(); const j = E.jeunes.find((y) => y.key === x.dataset.k); if (j) ouvrirJeune(j); }));
     });
   }
+  async function chargerActiviteEquipe() {
+    const box = $("#st-equipe"); if (!box) return;
+    try {
+      const r = await api("activite-equipe", null, { get: true });
+      const actifs = r.equipe.filter((m) => m.codePerso || m.connecte).length;
+      box.innerHTML = `<h2>Utilisation par l'équipe <span class="tag blue">visible par vous seul</span></h2>
+        <p class="muted">${actifs} personne(s) sur ${r.equipe.length} se sont déjà connectées ou ont choisi leur code. Les connexions sont comptées depuis le 28/10 ; « Son propre code » indique qui a activé son lien ou changé de code.</p>
+        <div class="table-wrap"><table class="st-table"><thead><tr><th>Personne</th><th>Site</th><th>Son propre code</th><th>Dernière connexion</th><th class="num">Jours actifs (7 j)</th><th class="num">Jours actifs (30 j)</th></tr></thead>
+        <tbody>${r.equipe.map((m) => `<tr><td><b>${esc(m.nom)}</b><br><span class="muted sm">${esc(m.role)}</span></td><td>${esc(m.site)}</td>
+          <td>${m.codePerso ? `<span class="tag ok">Oui</span>` : `<span class="tag warn">Code de la carte</span>`}</td>
+          <td>${m.derniere ? quand(m.derniere) : "—"}</td><td class="num">${m.jours7}</td><td class="num">${m.jours30}</td></tr>`).join("")}</tbody></table></div>`;
+    } catch (e) { box.innerHTML = `<h2>Utilisation par l'équipe</h2><p class="muted">${esc(e.message)}</p>`; }
+  }
   function renderStats(st, multi) {
     const A = st.adoption, C = st.activite, R = st.resultats;
     $("#st-maj").textContent = `Chiffres au ${new Date(st.aujourdhui + "T12:00:00").toLocaleDateString("fr-FR")} · ${multi ? "tous les sites" : "E2C " + (SITES[E.site] || ME.sites[0][1])}${$("#st-groupe").value ? " · groupe " + $("#st-groupe").value : ""}`;
-    if (!A.jeunes) { $("#st-body").innerHTML = `<div class="card empty small"><p>Aucun jeune dans cette sélection.</p></div>`; return; }
+    if (!A.jeunes) {
+      $("#st-body").innerHTML = `<div class="card empty small"><p>Aucun jeune dans cette sélection.</p></div>` + (ME.role === "admin" ? `<div class="card st-sec" id="st-equipe"><h2>Utilisation par l'équipe</h2><p class="muted">Chargement…</p></div>` : "");
+      if (ME.role === "admin") chargerActiviteEquipe();
+      return;
+    }
     const grp = (g) => `<b>${esc(g.nom)}</b>`;
     const n = (k) => (r) => r[k];
     const tx = (a, b) => (r) => P(r[b] ? Math.round((r[a] / r[b]) * 100) : null);
@@ -911,7 +928,9 @@ ${nomComplet()}`;
       ${tableau("Par groupe", [["Groupe", grp], ["Jeunes", n("jeunes"), "num"], ["Connectés", n("connectes"), "num"], ["Dossier complet", n("dossier"), "num"], ["Candidatures", n("candidatures"), "num"], ["Taux de réponse", tx("reponses", "candidatures"), "num"], ["Entretiens", n("entretiens"), "num"], ["Trouvés", n("trouves"), "num"]], st.parGroupe)}
       ${tableau("Par métier", [["Métier", (m) => `<b>${esc(m.metier)}</b>`], ["Candidatures", n("candidatures"), "num"], ["Réponses", n("reponses"), "num"], ["Taux de réponse", tx("reponses", "candidatures"), "num"], ["Réponses positives", n("positives"), "num"]], st.metiers)}
       ${tableau("Stage, alternance ou emploi", [["Recherche", (m) => `<b>${esc(m.type)}</b>`], ["Candidatures", n("candidatures"), "num"], ["Taux de réponse", tx("reponses", "candidatures"), "num"], ["Trouvés", n("trouves"), "num"]], st.types)}
+      ${ME.role === "admin" ? `<div class="card st-sec" id="st-equipe"><h2>Utilisation par l'équipe <span class="tag blue">visible par vous seul</span></h2><p class="muted">Chargement…</p></div>` : ""}
       <p class="note">Touchez une case « Utilisation » pour voir qui est concerné. Les réponses et les résultats sont indiqués par les jeunes dans leur suivi : rappelez-leur de mettre à jour le statut quand une entreprise répond. L'export Excel contient tous ces tableaux.</p>`;
+    if (ME.role === "admin") chargerActiviteEquipe();
     $$("#st-body [data-liste]").forEach((t) => {
       t.addEventListener("click", () => ouvrirListe(t.dataset.liste));
       t.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); ouvrirListe(t.dataset.liste); } });
