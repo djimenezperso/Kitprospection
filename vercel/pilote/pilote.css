@@ -196,3 +196,11 @@ tr.envoye-ok td:first-child b::after { content: " ✓"; color: var(--ok); }
 pre.script { white-space: pre-wrap; background: var(--blue-soft); border-radius: 12px; padding: 12px 14px; font: .95rem/1.5 "DM Sans", sans-serif; margin: 0; max-height: 50vh; overflow: auto; }
 .resultats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 @media (max-width: 520px) { .resultats { grid-template-columns: 1fr; } }
+
+.partage-btn { margin-top: 10px; }
+.partage-qr { width: min(240px, 70vw); margin: 4px auto 0; }
+.partage-qr svg { width: 100%; height: auto; display: block; }
+.partage-row { justify-content: center; }
+
+.links { align-items: center; }
+.links .maps-btn { text-decoration: none; }
