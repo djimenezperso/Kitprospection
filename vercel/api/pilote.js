@@ -7,7 +7,7 @@ const store = require("../lib/store");
 const SECRET = process.env.SESSION_SECRET || "dev-secret";
 const SITES = { clichy: "Clichy", bagneux: "Bagneux", nanterre: "Nanterre" };
 const ROLES = { admin: "Administrateur", global: "Direction (tous les sites)", responsable: "Responsable de site", formateur: "Formateur" };
-const STATUTS = ["Envoyé", "Relancé", "Réponse positive", "Entretien obtenu", "Refus", "Pris(e)"];
+const STATUTS = ["Envoyé", "À rappeler", "Relancé", "Réponse positive", "Entretien obtenu", "Refus", "Pris(e)"];
 const CV_MAX = 3 * 1024 * 1024;
 const CV_TYPES = {
   "application/pdf": "pdf",
@@ -131,7 +131,7 @@ const jeunePath = (site, key) => `jeunes/${site}/${key}.json`;
 function vueJeune(j) {
   return {
     site: j.site, siteNom: SITES[j.site], prenom: j.prenom, nom: j.nom, ident: j.ident, test: !!j.test, genre: j.genre || "",
-    typ: j.typ || "", metier: j.metier || "", rayon: j.rayon || 3, lettre: j.lettre || "", objet: j.objet || "",
+    typ: j.typ || "", metier: j.metier || "", rayon: j.rayon || 3, lettre: j.lettre || "", objet: j.objet || "", script: j.script || "",
     cv: j.cv ? { nom: j.cv.nom, taille: j.cv.taille, date: j.cv.date } : null,
     envois: j.envois || [],
     prepares: (j.prepares || []).filter((x) => !(j.envois || []).some((e) => e.siret === x.siret)),
@@ -140,7 +140,7 @@ function vueJeune(j) {
 function resume(j) {
   const env = j.envois || [];
   const t = todayParis();
-  const aRelancer = env.filter((e) => e.statut === "Envoyé" && e.relance && e.relance <= t).length;
+  const aRelancer = env.filter((e) => ["Envoyé", "À rappeler"].includes(e.statut) && e.relance && e.relance <= t).length;
   const reponses = env.filter((e) => !["Envoyé", "Relancé"].includes(e.statut)).length;
   return {
     key: j.key, site: j.site, prenom: j.prenom, nom: j.nom, ident: j.ident, test: !!j.test, code: j.code || "", groupe: j.groupe || "", formateur: j.formateur || "",
@@ -327,6 +327,7 @@ const actions = {
     if (b.rayon !== undefined) j.rayon = Math.min(Math.max(+b.rayon || 3, 1), 10);
     if (b.lettre !== undefined) j.lettre = clean(b.lettre, 8000);
     if (b.objet !== undefined) j.objet = clean(b.objet, 200);
+    if (b.script !== undefined) j.script = clean(b.script, 6000);
     activite(j);
     await saveJeune(j);
     return { jeune: vueJeune(j) };
@@ -360,13 +361,17 @@ const actions = {
     j.envois = j.envois || [];
     const siret = clean(b.siret, 20);
     if (!siret) fail(400, "Entreprise manquante.");
-    if (!j.envois.find((e) => e.siret === siret)) {
+    const ex = j.envois.find((e) => e.siret === siret);
+    if (!ex) {
       const d = todayParis();
       j.envois.push({
         siret, entreprise: clean(b.entreprise, 160), adresse: clean(b.adresse, 200), ville: clean(b.ville, 80),
         metier: j.metier || "", typ: j.typ || "", envoye: d, relance: relanceDate(d), statut: "Envoyé",
-        relanceFaite: "", maj: now(),
+        relanceFaite: "", maj: now(), canal: "email", email: clean(b.email, 120),
       });
+    } else if (ex.canal === "appel") { // CV envoyé par e-mail après un appel
+      const d = todayParis();
+      Object.assign(ex, { canal: "appel+email", statut: ex.statut === "À rappeler" ? "Envoyé" : ex.statut, relance: relanceDate(d), email: clean(b.email, 120) || ex.email || "", maj: now() });
     }
     j.prepares = (j.prepares || []).filter((x) => x.siret !== siret);
     if (!j.test) await noterContact(j.site, siret, j.key);
@@ -402,6 +407,35 @@ const actions = {
     const j = await loadJeune(s.site, s.key);
     j.prepares = (j.prepares || []).filter((x) => x.siret !== b.siret);
     await saveJeune(j);
+    return { jeune: vueJeune(j) };
+  },
+  // appel téléphonique : resultat = entretien | cv | rappeler | refus
+  async appel(req, b, s) {
+    needJeune(s);
+    const j = await loadJeune(s.site, s.key);
+    j.envois = j.envois || [];
+    const siret = clean(b.siret, 20);
+    if (!siret) fail(400, "Entreprise manquante.");
+    const res = { entretien: "Entretien obtenu", cv: "Envoyé", rappeler: "À rappeler", refus: "Refus" }[b.resultat];
+    if (!res) fail(400, "Résultat inconnu.");
+    const d = todayParis();
+    let e = j.envois.find((x) => x.siret === siret);
+    if (!e) {
+      e = { siret, entreprise: clean(b.entreprise, 160), adresse: clean(b.adresse, 200), ville: clean(b.ville, 80),
+        metier: j.metier || "", typ: j.typ || "", envoye: d, relance: "", statut: "", relanceFaite: "", canal: "appel", dates: {} };
+      j.envois.push(e);
+      if (!j.test) await noterContact(j.site, siret, j.key);
+    } else if (e.canal === "email") e.canal = "email+appel";
+    e.tel = clean(b.tel, 30) || e.tel || "";
+    e.appels = (e.appels || []).concat([{ d, r: b.resultat }]).slice(-10);
+    e.statut = res;
+    e.dates = e.dates || {};
+    if (res !== "Envoyé" && !e.dates[res]) e.dates[res] = d;
+    if (res === "À rappeler") { const x = new Date(d + "T12:00:00Z"); let n = 0; while (n < 2) { x.setUTCDate(x.getUTCDate() + 1); if (x.getUTCDay() % 6) n++; } e.relance = x.toISOString().slice(0, 10); }
+    else if (res === "Envoyé") e.relance = relanceDate(d);
+    e.maj = now();
+    j.prepares = (j.prepares || []).filter((x) => x.siret !== siret);
+    activite(j); await saveJeune(j);
     return { jeune: vueJeune(j) };
   },
   async statut(req, b, s) {
@@ -736,6 +770,9 @@ function calculerStats(jeunes) {
   const metiers = new Map();
   env.forEach(({ e, j }) => { const k = e.metier || j.metier || "?"; const r = metiers.get(k) || { metier: METIER_NOMS[k] || "Non précisé", candidatures: 0, reponses: 0, positives: 0 };
     r.candidatures++; if (REPONSES.includes(e.statut)) r.reponses++; if (POSITIVES.includes(e.statut)) r.positives++; metiers.set(k, r); });
+  const canaux = new Map();
+  env.forEach(({ e }) => { const k = /appel/.test(e.canal || "") ? "Téléphone" : "E-mail"; const r = canaux.get(k) || { canal: k, candidatures: 0, reponses: 0, entretiens: 0 };
+    r.candidatures++; if (REPONSES.includes(e.statut)) r.reponses++; if (e.statut === "Entretien obtenu" || e.statut === "Pris(e)") r.entretiens++; canaux.set(k, r); });
   const types = new Map();
   env.forEach(({ e, j }) => { const k = e.typ || j.typ || "?"; const r = types.get(k) || { type: { stage: "Stage", alternance: "Alternance", emploi: "Emploi" }[k] || "Non précisé", candidatures: 0, reponses: 0, trouves: 0 };
     r.candidatures++; if (REPONSES.includes(e.statut)) r.reponses++; if (e.statut === "Pris(e)") r.trouves++; types.set(k, r); });
@@ -745,6 +782,7 @@ function calculerStats(jeunes) {
     parGroupe: groupe((j) => `${SITES[j.site]} · ${j.groupe || "sans groupe"}`),
     metiers: [...metiers.values()].sort((a, b) => b.candidatures - a.candidatures),
     types: [...types.values()].sort((a, b) => b.candidatures - a.candidatures),
+    canaux: [...canaux.values()].sort((a, b) => b.candidatures - a.candidatures),
   };
 }
 async function jeunesDe(sites) {

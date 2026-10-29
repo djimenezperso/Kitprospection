@@ -188,3 +188,11 @@ tr.envoye-ok td:first-child b::after { content: " ✓"; color: var(--ok); }
 .chip.deja { background: var(--soft); color: var(--muted); font-weight: 600; }
 .ent.contactee { opacity: .8; }
 .sep-contact { list-style: none; font-size: .86rem; color: var(--muted); padding: 8px 4px 2px; border-top: 1px dashed var(--line); margin-top: 6px; }
+
+.vues.canal { margin: 0 0 12px; }
+.tel-row { display: flex; gap: 8px; }
+.tel-row input { flex: 1; }
+.btn.off { opacity: .5; }
+pre.script { white-space: pre-wrap; background: var(--blue-soft); border-radius: 12px; padding: 12px 14px; font: .95rem/1.5 "DM Sans", sans-serif; margin: 0; max-height: 50vh; overflow: auto; }
+.resultats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+@media (max-width: 520px) { .resultats { grid-template-columns: 1fr; } }

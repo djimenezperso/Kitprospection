@@ -17,7 +17,7 @@
     ["batiment", "Bâtiment (électricité, plomberie, peinture)", "le bâtiment"],
     ["hotellerie", "Hôtellerie / accueil", "l'hôtellerie et l'accueil"],
   ];
-  const STATUTS = ["Envoyé", "Relancé", "Réponse positive", "Entretien obtenu", "Refus", "Pris(e)"];
+  const STATUTS = ["Envoyé", "À rappeler", "Relancé", "Réponse positive", "Entretien obtenu", "Refus", "Pris(e)"];
   const REPONSES = ["Réponse positive", "Entretien obtenu", "Refus", "Pris(e)"];
 
   const $ = (s, r) => (r || document).querySelector(s);
@@ -85,12 +85,12 @@
       t.remove(); return ok;
     }
   }
-  const mailLinks = (sujet, corps) => {
-    const s = encodeURIComponent(sujet), c = encodeURIComponent(corps);
+  const mailLinks = (sujet, corps, to) => {
+    const s = encodeURIComponent(sujet), c = encodeURIComponent(corps), t = encodeURIComponent((to || "").trim());
     return {
-      gmail: `https://mail.google.com/mail/?view=cm&fs=1&su=${s}&body=${c}`,
-      outlook: `https://outlook.live.com/mail/0/deeplink/compose?subject=${s}&body=${c}`,
-      autre: `mailto:?subject=${s}&body=${c}`,
+      gmail: `https://mail.google.com/mail/?view=cm&fs=1${t ? "&to=" + t : ""}&su=${s}&body=${c}`,
+      outlook: `https://outlook.live.com/mail/0/deeplink/compose?${t ? "to=" + t + "&" : ""}subject=${s}&body=${c}`,
+      autre: `mailto:${t}?subject=${s}&body=${c}`,
     };
   };
   const todayIso = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris" }).format(new Date());
@@ -217,7 +217,7 @@
     const etat = $("#dossier-etat"); etat.textContent = n + "/2"; etat.classList.toggle("ok", n === 2);
     $("#nb-envois").textContent = J.envois.length;
     const t = todayIso();
-    const rel = J.envois.filter((e) => e.statut === "Envoyé" && e.relance <= t);
+    const rel = J.envois.filter((e) => ["Envoyé", "À rappeler"].includes(e.statut) && e.relance && e.relance <= t);
     const b = $("#j-banner");
     const prep = (J.prepares || []).filter((x) => !(S.attente && S.attente.siret === x.siret));
     if (prep.length) {
@@ -229,7 +229,7 @@
       $$("[data-prep-non]", b).forEach((x) => x.addEventListener("click", async () => { try { J = (await api("annule-prepare", { siret: x.dataset.prepNon })).jeune; majJeune(); if (S.resultats.length) renderListe(); } catch (e) { toast(e.message); } }));
     } else if (rel.length) {
       b.hidden = false;
-      b.innerHTML = `<span><b>${rel.length === 1 ? "1 relance à faire" : rel.length + " relances à faire"} aujourd'hui</b> : ${rel.map((e) => esc(e.entreprise)).join(", ")}.</span> <button class="btn dark sm" type="button" id="go-suivi">Voir les messages</button>`;
+      b.innerHTML = `<span><b>${rel.length === 1 ? "1 relance ou appel à faire" : rel.length + " relances ou appels à faire"} aujourd'hui</b> : ${rel.map((e) => esc(e.entreprise)).join(", ")}.</span> <button class="btn dark sm" type="button" id="go-suivi">Voir les messages</button>`;
       $("#go-suivi").addEventListener("click", () => showSub("suivi"));
     } else if (n < 2) {
       b.hidden = false;
@@ -255,7 +255,8 @@
     $("#rayon").value = J.rayon || 3; $("#rayon-out").textContent = (J.rayon || 3) + " km";
     $("#p-objet").value = J.objet || objetDefaut();
     $("#p-lettre").value = J.lettre || "";
-    renderCV(); etatLettre();
+    $("#p-script").value = J.script || "";
+    renderCV(); etatLettre(); etatScript();
   }
   function renderCV() {
     const box = $("#cv-box");
@@ -424,23 +425,46 @@
       .replace(/\[[^\]\n]{0,40}(entreprise|soci[ée]t[ée]|structure|enseigne)[^\]\n]{0,40}\]/gi, "[Entreprise]")
       .replace(/\b(X{3,}|\.{5,}|_{4,})/g, "[Entreprise]").trim();
   }
+  async function lireFichierTexte(f) {
+    if (f.size > 5 * 1024 * 1024) throw new Error("Fichier trop lourd (5 Mo maximum).");
+    const buf = await f.arrayBuffer(), nom = f.name.toLowerCase();
+    let t;
+    if (/\.docx$/.test(nom)) t = texteXml(await zipLire(buf, "word/document.xml"), ["w:p"], "w:tab", "w:br");
+    else if (/\.odt$/.test(nom)) t = texteXml(await zipLire(buf, "content.xml"), ["text:p", "text:h"], "text:tab", "text:line-break", "text:s");
+    else if (/\.pdf$/.test(nom)) t = await textePdf(buf);
+    else if (/\.txt$/.test(nom)) t = new TextDecoder().decode(buf);
+    else if (/\.doc$/.test(nom)) throw new Error("Ancien format Word (.doc) : enregistre le fichier en .docx ou en PDF, puis réessaie.");
+    else throw new Error("Format non reconnu : Word (.docx), PDF ou texte.");
+    t = nettoyerLettre(t);
+    if (t.length < 20) throw new Error("Je n'arrive pas à lire le texte de ce fichier (document scanné ?). Essaie avec le fichier Word, ou colle le texte.");
+    return t;
+  }
+  $("#script-input").addEventListener("change", async (ev) => {
+    const f = ev.target.files[0]; ev.target.value = "";
+    if (!f) return;
+    const lab = $("#script-label-txt"), txt0 = lab.textContent;
+    lab.textContent = "Lecture en cours…";
+    try {
+      const t = await lireFichierTexte(f);
+      $("#p-script").value = t; etatScript(); await sauver();
+      toast("Script importé ✓ Vérifie le texte.");
+      $("#p-script").scrollIntoView({ behavior: "smooth", block: "center" });
+    } catch (e) { toast(e.message); }
+    finally { lab.textContent = txt0; }
+  });
+  function etatScript() {
+    const tag = $("#script-etat"), ok = !!$("#p-script").value.trim();
+    tag.textContent = ok ? "Prêt ✓" : "Facultatif"; tag.className = ok ? "tag ok" : "tag";
+  }
+  $("#p-script").addEventListener("input", () => { etatScript(); planifierSave(); });
+  $("#btn-save-script").addEventListener("click", async () => { await sauver(); toast("Script enregistré ✓"); });
   $("#lettre-input").addEventListener("change", async (ev) => {
     const f = ev.target.files[0]; ev.target.value = "";
     if (!f) return;
     const lab = $("#lettre-label-txt"), txt0 = lab.textContent;
-    if (f.size > 5 * 1024 * 1024) { toast("Fichier trop lourd (5 Mo maximum)."); return; }
     lab.textContent = "Lecture en cours…";
     try {
-      const buf = await f.arrayBuffer(), nom = f.name.toLowerCase();
-      let t;
-      if (/\.docx$/.test(nom)) t = texteXml(await zipLire(buf, "word/document.xml"), ["w:p"], "w:tab", "w:br");
-      else if (/\.odt$/.test(nom)) t = texteXml(await zipLire(buf, "content.xml"), ["text:p", "text:h"], "text:tab", "text:line-break", "text:s");
-      else if (/\.pdf$/.test(nom)) t = await textePdf(buf);
-      else if (/\.txt$/.test(nom)) t = new TextDecoder().decode(buf);
-      else if (/\.doc$/.test(nom)) throw new Error("Ancien format Word (.doc) : enregistre ta lettre en .docx ou en PDF, puis réessaie.");
-      else throw new Error("Format non reconnu : Word (.docx), PDF ou texte.");
-      t = nettoyerLettre(t);
-      if (t.length < 40) throw new Error("Je n'arrive pas à lire le texte de ce fichier (lettre scannée ?). Essaie avec le fichier Word, ou colle le texte.");
+      const t = await lireFichierTexte(f);
       const ta = $("#p-lettre");
       ta.value = t; etatLettre(); await sauver();
       toast(/\[Entreprise\]/.test(t) ? "Lettre importée ✓ Vérifie le texte." : "Lettre importée ✓ Vérifie le texte et ajoute [Entreprise] là où va le nom de l'entreprise.");
@@ -468,7 +492,7 @@ ${nomComplet()}`;
     clearTimeout(saveT);
     const genre = ($("input[name=genre]:checked") || {}).value || "";
     try {
-      J = (await api("profil", { genre, typ: $("#p-typ").value, metier: $("#p-metier").value, lettre: $("#p-lettre").value, objet: $("#p-objet").value })).jeune;
+      J = (await api("profil", { genre, typ: $("#p-typ").value, metier: $("#p-metier").value, lettre: $("#p-lettre").value, objet: $("#p-objet").value, script: $("#p-script").value })).jeune;
       $("#save-etat").textContent = "Enregistré ✓"; majJeune();
       if ($("#p-metier").value) $("#s-metier").value = $("#p-metier").value;
     } catch (e) { $("#save-etat").textContent = "Pas enregistré : " + e.message; }
@@ -550,7 +574,13 @@ ${nomComplet()}`;
     setTimeout(() => map.invalidateSize(), 60);
   }
   function renderListe() {
-    const deja = new Set(J.envois.map((e) => e.siret));
+    const parSiret = new Map(J.envois.map((e) => [e.siret, e]));
+    // « terminé » : envoyé par e-mail, ou appel conclu (pas « à rappeler », pas CV à envoyer en attente)
+    const fini = (siret) => { const x = parSiret.get(siret); if (!x) return false;
+      if (x.statut === "À rappeler") return false;
+      if (x.canal === "appel" && x.statut === "Envoyé") return false; // CV promis par e-mail, pas encore envoyé
+      return true; };
+    const deja = new Set([...parSiret.keys()].filter(fini));
     const premierContact = S.resultats.findIndex((x) => x.contact && !deja.has(x.siret));
     $("#liste").innerHTML = S.resultats.map((e, i) => {
       const q = encodeURIComponent(`${e.nom} ${e.adresse}`);
@@ -562,7 +592,8 @@ ${nomComplet()}`;
               <div class="chips"><span class="chip dist">${e.distance} km</span>${e.effectif ? `<span class="chip">${esc(e.effectif)}</span>` : ""}${e.contact && !sent ? `<span class="chip deja">Déjà contactée par ${e.contact.n > 1 ? e.contact.n + " stagiaires" : "un stagiaire"} de l'E2C ${quandJour(e.contact.derniere)}</span>` : ""}</div></div>
           </div>
           ${!sent && (J.prepares || []).some((x) => x.siret === e.siret) ? `<span class="chip prep">Préparé · envoyé ?</span>` : ""}
-          ${sent ? `<span class="btn done">Envoyé ✓</span>` : `<button class="btn ${open ? "ghost" : "dark"}" data-ecrire="${e.siret}" type="button">${open ? "Fermer" : "Écrire"}</button>`}
+          ${sent ? `<span class="btn done">${/appel/.test((parSiret.get(e.siret) || {}).canal || "") && !/email/.test(parSiret.get(e.siret).canal) ? "Appelé ✓" : "Envoyé ✓"}</span>`
+            : `<button class="btn ${open ? "ghost" : "dark"}" data-ecrire="${e.siret}" type="button">${open ? "Fermer" : (parSiret.get(e.siret) || {}).statut === "À rappeler" ? "Rappeler" : (parSiret.get(e.siret) || {}).canal === "appel" ? "Envoyer le CV" : "Contacter"}</button>`}
         </div>
         <div class="links">
           <a href="https://www.google.com/maps/search/?api=1&query=${q}" target="_blank" rel="noopener">Carte</a>
@@ -583,7 +614,31 @@ ${nomComplet()}`;
   }
   function panneau(e) {
     const sansLettre = !(J.lettre || "").trim();
+    const modeTel = S.mode === "tel";
+    const q = encodeURIComponent(`${e.nom} ${e.adresse}`);
+    const script = (J.script || "").replace(/\[\s*entreprise\s*\]/gi, e.nom);
     return `<div class="msg">
+      <div class="vues canal" role="tablist" aria-label="Comment contacter">
+        <button role="tab" type="button" data-mode="email" class="${modeTel ? "" : "on"}" aria-selected="${!modeTel}">✉️ Par e-mail</button>
+        <button role="tab" type="button" data-mode="tel" class="${modeTel ? "on" : ""}" aria-selected="${modeTel}">📞 Par téléphone</button>
+      </div>
+      <div class="tel-zone" ${modeTel ? "" : "hidden"}>
+        <div class="step"><i>1</i>Trouve le numéro</div>
+        <a class="btn ghost big" href="https://www.google.com/maps/search/?api=1&query=${q}" target="_blank" rel="noopener">Voir le numéro sur Google Maps</a>
+        <label class="step" for="tel-${e.siret}"><i>✎</i>Numéro trouvé (facultatif)</label>
+        <div class="tel-row"><input id="tel-${e.siret}" class="obj" type="tel" inputmode="tel" placeholder="01 23 45 67 89"><a class="btn primary" id="call-${e.siret}" href="#" aria-disabled="true">Appeler</a></div>
+        <div class="step"><i>2</i>Ton script d'appel</div>
+        ${script.trim() ? `<pre class="script">${esc(script)}</pre>` : `<p class="alert soft">Ton script d'appel n'est pas encore dans ton dossier. Prépare-le avec ton formateur, puis <a href="#" data-go-dossier>ajoute-le</a>.</p>`}
+        <div class="step"><i>3</i>Comment s'est passé l'appel ?</div>
+        <div class="resultats">
+          <button class="btn primary" type="button" data-appel="entretien">Entretien obtenu 🎉</button>
+          <button class="btn dark" type="button" data-appel="cv">Envoyer mon CV par e-mail</button>
+          <button class="btn ghost" type="button" data-appel="rappeler">Rappeler plus tard</button>
+          <button class="btn ghost" type="button" data-appel="refus">Pas intéressé</button>
+        </div>
+        <p class="hint">« Envoyer mon CV par e-mail » : note l'adresse qu'on te donne, l'onglet e-mail s'ouvre avec ta lettre prête.</p>
+      </div>
+      <div class="mail-zone" ${modeTel ? "hidden" : ""}>
       ${sansLettre ? `<p class="alert soft">Ta lettre n'est pas encore dans ton dossier : voici un message type. <a href="#" data-go-dossier>Ajouter ma lettre</a></p>` : ""}
       <label class="step" for="obj-${e.siret}"><i>✎</i>Objet</label>
       <input id="obj-${e.siret}" class="obj" value="${esc(J.objet || objetDefaut())}">
@@ -597,7 +652,9 @@ ${nomComplet()}`;
         <a class="btn ghost" data-mail="outlook" target="_blank" rel="noopener">Outlook</a>
         <a class="btn ghost" data-mail="autre">Autre messagerie</a>
       </div>
-      <p class="hint">Si la lettre n'apparaît pas, colle-la (Ctrl + V). Ajoute l'adresse e-mail de l'entreprise : elle est sur son site (« Trouver le site / contact »), sinon appelle pour la demander.</p>
+      <label class="step" for="to-${e.siret}"><i>@</i>Adresse e-mail de l'entreprise (si tu l'as)</label>
+      <input id="to-${e.siret}" class="obj" type="email" inputmode="email" placeholder="contact@entreprise.fr">
+      <p class="hint">Si la lettre n'apparaît pas dans ta messagerie, colle-la (Ctrl + V). L'adresse est souvent sur le site de l'entreprise (« Trouver le site / contact ») ; sinon, appelle pour la demander.</p>
       <div class="step"><i>3</i>Joins ton CV au message</div>
       ${J.cv ? `<button class="btn ghost big" type="button" data-cv>Télécharger mon CV (${esc(J.cv.nom)})</button>
         <p class="hint">Dans ta messagerie, clique sur le trombone 📎 et choisis ce fichier (dossier « Téléchargements »).</p>`
@@ -607,6 +664,7 @@ ${nomComplet()}`;
         <p class="rappel-clic" hidden>⚠️ N'oublie pas : quand ton e-mail est parti, clique ici. Sinon tu risques d'écrire deux fois à la même entreprise.</p>
         <button class="btn dark big" type="button" data-envoye="${e.siret}">J'ai envoyé ma candidature</button>
       </div>
+      </div>
     </div>`;
   }
   function bindPanneau() {
@@ -614,9 +672,46 @@ ${nomComplet()}`;
     if (!e) return;
     const ta = $(`#txt-${e.siret}`), obj = $(`#obj-${e.siret}`);
     if (!ta) return;
-    const majLiens = () => { const l = mailLinks(obj.value, ta.value); $$("[data-mail]").forEach((a) => { a.href = l[a.dataset.mail]; }); };
+    const to = $(`#to-${e.siret}`);
+    if (S.emailPour && S.emailPour.siret === e.siret) to.value = S.emailPour.email || "";
+    const majLiens = () => { const l = mailLinks(obj.value, ta.value, to.value); $$("[data-mail]").forEach((a) => { a.href = l[a.dataset.mail]; }); };
     majLiens();
-    ta.addEventListener("input", majLiens); obj.addEventListener("input", majLiens);
+    ta.addEventListener("input", majLiens); obj.addEventListener("input", majLiens); to.addEventListener("input", majLiens);
+    // onglets e-mail / téléphone
+    $$("[data-mode]").forEach((b) => b.addEventListener("click", () => {
+      S.mode = b.dataset.mode;
+      $$("[data-mode]").forEach((x) => { x.classList.toggle("on", x === b); x.setAttribute("aria-selected", String(x === b)); });
+      $(".tel-zone").hidden = S.mode !== "tel"; $(".mail-zone").hidden = S.mode === "tel";
+    }));
+    const tel = $(`#tel-${e.siret}`), call = $(`#call-${e.siret}`);
+    const majTel = () => { const n = tel.value.replace(/[^\d+]/g, ""); call.href = n.length >= 6 ? "tel:" + n : "#"; call.setAttribute("aria-disabled", String(n.length < 6)); call.classList.toggle("off", n.length < 6); };
+    tel.addEventListener("input", majTel); majTel();
+    call.addEventListener("click", (ev) => { if (call.getAttribute("aria-disabled") === "true") { ev.preventDefault(); toast("Écris d'abord le numéro (sur Google Maps)."); } });
+    $$("[data-appel]").forEach((b) => b.addEventListener("click", async () => {
+      const r = b.dataset.appel;
+      if (r === "cv") {
+        ouvrirDlg(`<h2>Envoyer ton CV par e-mail</h2><p class="muted">Quelle adresse t'a-t-on donnée ?</p>
+          <label>Adresse e-mail <input id="cv-mail" type="email" inputmode="email" placeholder="contact@entreprise.fr"></label>
+          <button class="btn primary big" type="button" id="cv-mail-ok">Préparer l'e-mail</button>`, (root) => {
+          $("#cv-mail-ok", root).addEventListener("click", async () => {
+            const email = $("#cv-mail", root).value.trim();
+            try {
+              J = (await api("appel", { siret: e.siret, entreprise: e.nom, adresse: e.adresse, ville: e.ville, resultat: "cv", tel: tel.value })).jeune;
+              dlg.close(); S.mode = "email"; S.emailPour = { siret: e.siret, email };
+              renderListe(); toast("Appel noté ✓ Prépare maintenant ton e-mail.");
+              // réouvrir le panneau de cette entreprise en mode e-mail
+              S.ouvert = e.siret; renderListe(); const li = $("#e-" + e.siret); if (li) li.scrollIntoView({ behavior: "smooth", block: "start" });
+            } catch (x) { toast(x.message); }
+          });
+        });
+        return;
+      }
+      try {
+        J = (await api("appel", { siret: e.siret, entreprise: e.nom, adresse: e.adresse, ville: e.ville, resultat: r, tel: tel.value })).jeune;
+        S.ouvert = null; majJeune(); renderListe(); renderMap();
+        toast({ entretien: "Bravo ! Entretien noté dans ton suivi 🎉", rappeler: "Noté : on te rappellera de rappeler dans 2 jours.", refus: "Noté. Courage, passe à la suivante !" }[r]);
+      } catch (x) { toast(x.message); }
+    }));
     $$("[data-go-dossier]").forEach((a) => a.addEventListener("click", (ev) => { ev.preventDefault(); showSub("dossier"); }));
     const preparer = () => {
       S.attente = { siret: e.siret, t: Date.now() };
@@ -644,7 +739,8 @@ ${nomComplet()}`;
   // confirmation d'envoi (bouton, question au retour, ou bandeau)
   async function envoyer(e) {
     try {
-      J = (await api("envoi", { siret: e.siret, entreprise: e.nom, adresse: e.adresse, ville: e.ville })).jeune;
+      const toEl = $(`#to-${e.siret}`);
+      J = (await api("envoi", { siret: e.siret, entreprise: e.nom, adresse: e.adresse, ville: e.ville, email: toEl ? toEl.value.trim() : "" })).jeune;
       if (S.attente && S.attente.siret === e.siret) S.attente = null;
       if (S.ouvert === e.siret) S.ouvert = null;
       majJeune();
@@ -674,6 +770,8 @@ ${nomComplet()}`;
   });
   function ouvrir(siret, depuisCarte) {
     S.ouvert = S.ouvert === siret ? null : siret;
+    const x = J.envois.find((y) => y.siret === siret);
+    if (S.ouvert && x) S.mode = x.statut === "À rappeler" ? "tel" : "email";
     renderListe(); renderMap();
     const el = $("#e-" + siret);
     if (el && (depuisCarte || S.ouvert)) el.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -693,22 +791,24 @@ ${nomComplet()}`;
   }
   function renderSuivi() {
     const env = J.envois, t = todayIso();
-    const rel = env.filter((e) => e.statut === "Envoyé" && e.relance <= t);
+    const rel = env.filter((e) => e.statut === "Envoyé" && e.relance && e.relance <= t && e.canal !== "appel");
+    const rappels = env.filter((e) => e.statut === "À rappeler" && e.relance && e.relance <= t);
     $("#k-env").textContent = env.length;
     $("#k-rep").textContent = env.filter((e) => REPONSES.includes(e.statut)).length;
-    $("#k-rel").textContent = rel.length;
+    $("#k-rel").textContent = rel.length + rappels.length;
     $("#suivi-vide").hidden = env.length > 0;
     $("#suivi-table").hidden = env.length === 0;
     const q = evQuotidien();
     $("#rappel-quotidien .rq-liens").innerHTML = `<a class="btn ghost" href="${gcal(q)}" target="_blank" rel="noopener">Google Agenda</a><a class="btn ghost" href="${ics(q)}" download="rappel-candidatures.ics">Autre agenda</a>`;
     $("#suivi-table tbody").innerHTML = env.slice().reverse().map((e) => {
-      const arel = e.statut === "Envoyé" && e.relance <= t;
+      const arel = ["Envoyé", "À rappeler"].includes(e.statut) && e.relance && e.relance <= t;
+      const ic = /appel/.test(e.canal || "") ? (/email/.test(e.canal) ? "📞✉️" : "📞") : "✉️";
       return `<tr>
-        <td><b>${esc(e.entreprise)}</b>${e.ville ? `<br><span class="muted sm">${esc(e.ville)}</span>` : ""}${arel ? ` <span class="tag warn">À relancer</span>` : ""}</td>
+        <td><span title="${/appel/.test(e.canal || "") ? "Appel" : "E-mail"}">${ic}</span> <b>${esc(e.entreprise)}</b>${e.tel ? ` <a class="sm" href="tel:${esc(e.tel.replace(/[^\d+]/g, ""))}">${esc(e.tel)}</a>` : ""}${e.ville ? `<br><span class="muted sm">${esc(e.ville)}</span>` : ""}${arel ? ` <span class="tag warn">${e.statut === "À rappeler" ? "À rappeler" : "À relancer"}</span>` : ""}</td>
         <td>${fr(e.envoye)}</td>
         <td>${e.relanceFaite ? "Faite le " + fr(e.relanceFaite) : fr(e.relance)}</td>
         <td><select data-statut="${esc(e.siret)}" aria-label="Statut pour ${esc(e.entreprise)}">${STATUTS.map((s) => `<option${s === e.statut ? " selected" : ""}>${s}</option>`).join("")}</select></td>
-        <td class="sm nowrap">${e.statut === "Envoyé" ? liensAgenda(evRelance(e), "relance-" + e.siret) : "—"}</td>
+        <td class="sm nowrap">${["Envoyé", "À rappeler"].includes(e.statut) && e.relance ? liensAgenda(evRelance(e), "relance-" + e.siret) : "—"}</td>
       </tr>`;
     }).join("");
     $$("[data-statut]").forEach((s) => s.addEventListener("change", async () => {
@@ -934,6 +1034,7 @@ ${nomComplet()}`;
       ${multi ? tableau("Par site", [["Site", grp], ["Jeunes", n("jeunes"), "num"], ["Connectés", n("connectes"), "num"], ["Dossier complet", n("dossier"), "num"], ["Candidatures", n("candidatures"), "num"], ["Taux de réponse", tx("reponses", "candidatures"), "num"], ["Entretiens", n("entretiens"), "num"], ["Trouvés", n("trouves"), "num"]], st.parSite) : ""}
       ${tableau("Par groupe", [["Groupe", grp], ["Jeunes", n("jeunes"), "num"], ["Connectés", n("connectes"), "num"], ["Dossier complet", n("dossier"), "num"], ["Candidatures", n("candidatures"), "num"], ["Taux de réponse", tx("reponses", "candidatures"), "num"], ["Entretiens", n("entretiens"), "num"], ["Trouvés", n("trouves"), "num"]], st.parGroupe)}
       ${tableau("Par métier", [["Métier", (m) => `<b>${esc(m.metier)}</b>`], ["Candidatures", n("candidatures"), "num"], ["Réponses", n("reponses"), "num"], ["Taux de réponse", tx("reponses", "candidatures"), "num"], ["Réponses positives", n("positives"), "num"]], st.metiers)}
+      ${tableau("E-mail ou téléphone", [["Canal", (m) => `<b>${m.canal === "Téléphone" ? "📞 Téléphone" : "✉️ E-mail"}</b>`], ["Contacts", n("candidatures"), "num"], ["Réponses", n("reponses"), "num"], ["Taux de réponse", tx("reponses", "candidatures"), "num"], ["Entretiens", n("entretiens"), "num"]], st.canaux || [])}
       ${tableau("Stage, alternance ou emploi", [["Recherche", (m) => `<b>${esc(m.type)}</b>`], ["Candidatures", n("candidatures"), "num"], ["Taux de réponse", tx("reponses", "candidatures"), "num"], ["Trouvés", n("trouves"), "num"]], st.types)}
       ${ME.role === "admin" ? `<div class="card st-sec" id="st-equipe"><h2>Utilisation par l'équipe <span class="tag blue">visible par vous seul</span></h2><p class="muted">Chargement…</p></div>` : ""}
       <p class="note">Touchez une case « Utilisation » pour voir qui est concerné. Les réponses et les résultats sont indiqués par les jeunes dans leur suivi : rappelez-leur de mettre à jour le statut quand une entreprise répond. L'export Excel contient tous ces tableaux.</p>`;
@@ -970,7 +1071,7 @@ ${nomComplet()}`;
         <label class="inline">Formateur référent <input id="d-form" value="${esc(d.formateur)}" placeholder="Nom du formateur"><button class="btn ghost sm" type="button" id="d-form-ok">Enregistrer</button></label>
         <h3 class="mt">Candidatures</h3>
         ${d.envois.length ? `<div class="table-wrap"><table><thead><tr><th>Entreprise</th><th>Envoyée</th><th>Relance</th><th>Statut</th></tr></thead><tbody>
-          ${d.envois.slice().reverse().map((e) => `<tr><td><b>${esc(e.entreprise)}</b><br><span class="muted sm">${esc(e.ville)}</span></td><td>${fr(e.envoye)}</td>
+          ${d.envois.slice().reverse().map((e) => `<tr><td>${/appel/.test(e.canal || "") ? "📞 " : "✉️ "}<b>${esc(e.entreprise)}</b><br><span class="muted sm">${esc(e.ville)}</span></td><td>${fr(e.envoye)}</td>
           <td>${e.relanceFaite ? "faite le " + fr(e.relanceFaite) : (e.statut === "Envoyé" && e.relance <= t ? `<span class="tag warn">à faire</span>` : fr(e.relance))}</td><td>${esc(e.statut)}</td></tr>`).join("")}
         </tbody></table></div>` : `<p class="muted">Aucune candidature pour le moment.</p>`}
         <div class="dlg-foot">
