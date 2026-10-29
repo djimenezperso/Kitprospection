@@ -166,6 +166,24 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
         </div>
         <p class="hint" id="save-etat"></p>
       </div>
+      <div class="card">
+        <div class="lettre-head">
+          <h2>Mon script d'appel</h2>
+          <span class="tag" id="script-etat"></span>
+        </div>
+        <p class="muted" style="margin-top:4px">Pour appeler les entreprises : le texte préparé avec ton formateur (ce que tu dis au téléphone, tes réponses aux questions). Tu l'auras sous les yeux pendant l'appel.</p>
+        <div class="import-lettre">
+          <label class="btn primary file-btn">
+            <input type="file" id="script-input" accept=".docx,.pdf,.odt,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text,text/plain">
+            <span id="script-label-txt">Importer mon script (Word ou PDF)</span>
+          </label>
+          <span class="muted sm">ou écris-le directement ci-dessous.</span>
+        </div>
+        <label>Texte du script
+          <textarea id="p-script" rows="10"></textarea>
+        </label>
+        <div class="row-btns"><button class="btn primary" type="button" id="btn-save-script">Enregistrer</button></div>
+      </div>
     </div>
 
     <!-- 2. Chercher -->
