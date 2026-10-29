@@ -246,6 +246,26 @@
     if (name === "chercher") { renderPret(); if (map) setTimeout(() => map.invalidateSize(), 50); }
   }
 
+  // ----- partager l'outil avec un camarade -----
+  $("#btn-partage").addEventListener("click", () => {
+    const url = `${location.origin}/pilote/?site=${J.site}`;
+    const txt = `Je cherche mon stage avec le Kit de prospection de l'E2C ${J.siteNom}. Connecte-toi avec ton prénom.nom : ${url}`;
+    ouvrirDlg(`<h2>Partager avec un camarade</h2>
+      <p class="muted">Ton camarade scanne ce QR code avec son téléphone, puis entre son identifiant (prénom.nom).</p>
+      <div class="partage-qr">${window.kpQR ? window.kpQR(url, "M") : ""}</div>
+      <p class="center sm muted">${esc(url.replace(/^https?:\/\//, ""))}</p>
+      <div class="row-btns partage-row">
+        ${navigator.share ? `<button class="btn primary" type="button" id="pt-share">Partager…</button>` : ""}
+        <a class="btn ghost" href="https://wa.me/?text=${encodeURIComponent(txt)}" target="_blank" rel="noopener">WhatsApp</a>
+        <a class="btn ghost" href="sms:?&body=${encodeURIComponent(txt)}">SMS</a>
+        <button class="btn ghost" type="button" id="pt-copy">Copier le lien</button>
+      </div>`, (root) => {
+      const sh = $("#pt-share", root);
+      if (sh) sh.addEventListener("click", () => navigator.share({ title: "Kit de prospection", text: txt, url }).catch(() => {}));
+      $("#pt-copy", root).addEventListener("click", async () => { if (await copier(url)) toast("Lien copié."); });
+    });
+  });
+
   // ----- dossier -----
   function remplirDossier() {
     $$("input[name=genre]").forEach((r) => { r.checked = r.value === J.genre; });
@@ -596,7 +616,8 @@ ${nomComplet()}`;
             : `<button class="btn ${open ? "ghost" : "dark"}" data-ecrire="${e.siret}" type="button">${open ? "Fermer" : (parSiret.get(e.siret) || {}).statut === "À rappeler" ? "Rappeler" : (parSiret.get(e.siret) || {}).canal === "appel" ? "Envoyer le CV" : "Contacter"}</button>`}
         </div>
         <div class="links">
-          <a href="https://www.google.com/maps/search/?api=1&query=${q}" target="_blank" rel="noopener">Carte</a>
+          <a class="btn ghost sm maps-btn" href="https://www.google.com/maps/search/?api=1&query=${q}" target="_blank" rel="noopener">📍 Google Maps</a>
+          <a href="https://www.google.com/maps/dir/?api=1&destination=${q}" target="_blank" rel="noopener">Itinéraire</a>
           <a href="https://www.google.com/search?q=${q}" target="_blank" rel="noopener">Trouver le site / contact</a>
           <a href="https://annuaire-entreprises.data.gouv.fr/etablissement/${e.siret}" target="_blank" rel="noopener">Fiche officielle</a>
         </div>
