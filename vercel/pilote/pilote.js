@@ -173,6 +173,7 @@
       $("#login-titre").textContent = `E2C ${SITES[site]} : bienvenue sur ton Kit de prospection.`;
     }
     if (params.has("equipe")) setTimeout(() => $("#ls-code").focus(), 50);
+    if (SITES[params.get("site")]) setTimeout(proposerInstall, 900);
   }
   $("#f-jeune").addEventListener("submit", async (ev) => {
     ev.preventDefault();
@@ -278,7 +279,7 @@
   window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); invitInstall = e; majBoutonInstall(); });
   window.addEventListener("appinstalled", () => { invitInstall = null; majBoutonInstall(); toast("Le Kit est sur ton écran d'accueil ✓"); });
   function majBoutonInstall() { const cache = estInstalle() || !(invitInstall || estIOS || /android/i.test(navigator.userAgent)); $$("[data-installer]").forEach((b) => { b.hidden = cache; }); }
-  $$("[data-installer]").forEach((btn) => btn.addEventListener("click", async () => {
+  async function installer() {
     if (invitInstall) { invitInstall.prompt(); try { await invitInstall.userChoice; } catch (e) { /* */ } invitInstall = null; majBoutonInstall(); return; }
     ouvrirDlg(estIOS ? `<h2>Ajouter à l'écran d'accueil</h2>
       <ol class="etapes"><li>Touche le bouton <b>Partager</b> <span aria-hidden="true">⬆️</span> en bas de Safari (ou en haut à droite).</li>
@@ -287,8 +288,24 @@
       : `<h2>Ajouter à l'écran d'accueil</h2>
       <ol class="etapes"><li>Ouvre le menu <b>⋮</b> de ton navigateur (en haut à droite).</li><li>Choisis <b>« Ajouter à l'écran d'accueil »</b> ou <b>« Installer l'application »</b>.</li><li>Confirme.</li></ol>
       <p class="muted">L'icône « Kit E2C » apparaîtra sur ton téléphone, comme une application.</p>`);
-  }));
+  }
+  $$("[data-installer]").forEach((btn) => btn.addEventListener("click", installer));
   majBoutonInstall();
+  // Arrivée par le QR code : proposer tout de suite de mettre le Kit sur l'écran d'accueil
+  function proposerInstall() {
+    const mobile = estIOS || /android/i.test(navigator.userAgent);
+    if (!mobile || estInstalle() || $("#install-sheet")) return;
+    const d = document.createElement("div");
+    d.id = "install-sheet"; d.className = "install-sheet no-print"; d.setAttribute("role", "dialog"); d.setAttribute("aria-label", "Ajouter à l'écran d'accueil");
+    d.innerHTML = `<img src="/icons/icon-192.png" alt="" width="48" height="48">
+      <div class="is-txt"><b>Mets le Kit sur ton téléphone</b><span>Une icône sur ton écran d'accueil, pour le retrouver en un clic.</span></div>
+      <div class="is-btns"><button class="btn primary" type="button" data-is="ok">Ajouter</button><button class="btn ghost sm" type="button" data-is="non">Plus tard</button></div>`;
+    document.body.appendChild(d);
+    requestAnimationFrame(() => d.classList.add("on"));
+    const fermer = () => { d.classList.remove("on"); setTimeout(() => d.remove(), 300); };
+    d.querySelector("[data-is=ok]").addEventListener("click", () => { fermer(); installer(); });
+    d.querySelector("[data-is=non]").addEventListener("click", fermer);
+  }
 
   // ----- partager l'outil avec un camarade -----
   $("#btn-partage").addEventListener("click", () => {

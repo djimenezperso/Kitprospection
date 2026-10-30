@@ -206,3 +206,12 @@ pre.script { white-space: pre-wrap; background: var(--blue-soft); border-radius:
 .links .maps-btn { text-decoration: none; }
 
 .etapes { margin: 0 0 8px; padding-left: 20px; display: grid; gap: 6px; }
+
+.install-sheet { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 60; display: grid; grid-template-columns: 48px 1fr; gap: 10px 12px; align-items: center;
+  background: #fff; border-radius: 18px; padding: 14px; box-shadow: 0 12px 40px rgba(21,34,56,.25); transform: translateY(140%); transition: transform .3s ease; max-width: 520px; margin: 0 auto; }
+.install-sheet.on { transform: none; }
+.install-sheet img { border-radius: 12px; }
+.install-sheet .is-txt { display: grid; gap: 2px; font-size: .95rem; }
+.install-sheet .is-txt span { color: var(--muted, #5b6474); font-size: .88rem; }
+.install-sheet .is-btns { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; }
+.install-sheet .is-btns .btn.primary { flex: 1; }
