@@ -1166,7 +1166,7 @@ ${nomComplet()}`;
       <td class="col-site">${esc(SITES[j.site])}</td>
       <td>${esc(j.metier === "libre" ? (j.metierLibre || "Autre") : (metierLabel(j.metier) || "—"))}</td>
       <td class="nowrap"><span class="tag ${j.cv ? "ok" : "bad"}">CV</span> <span class="tag ${j.lettre ? "ok" : "bad"}">Lettre</span></td>
-      <td class="num">${j.envois}</td><td class="num">${j.reponses}</td>
+      <td class="num">${j.envois}${j.prepares ? ` <span class="chip prep" title="E-mails préparés mais pas confirmés comme envoyés">+${j.prepares} ?</span>` : ""}</td><td class="num">${j.reponses}</td>
       <td class="num">${j.envois === 0 ? `<span class="tag bad">Aucun envoi</span>` : j.aRelancer ? `<span class="tag warn">${j.aRelancer}</span>` : "0"}</td>
       <td class="sm">${quand(j.derniere)}</td></tr>`).join("");
     $$("#c-table tbody tr[data-i]").forEach((tr) => {
@@ -1333,9 +1333,13 @@ ${nomComplet()}`;
         </div>
         <pre class="lettre-pre" id="d-lettre-txt" hidden>${esc(d.lettre)}</pre>
         <label class="inline">Formateur référent <input id="d-form" value="${esc(d.formateur)}" placeholder="Nom du formateur"><button class="btn ghost sm" type="button" id="d-form-ok">Enregistrer</button></label>
+        ${(d.prepares || []).length ? `<h3 class="mt">Préparées, non confirmées <span class="chip prep">${d.prepares.length}</span></h3>
+          <p class="muted sm">E-mail préparé dans l'outil, mais ${esc(d.prenom)} n'a pas cliqué sur « J'ai envoyé ». Demandez-lui, puis confirmez.</p>
+          <div class="prep-liste">${d.prepares.slice().reverse().map((x) => `<div class="prep-ligne"><div><b>${esc(x.entreprise)}</b><br><span class="muted sm">${esc(x.ville || "")} · préparé le ${fr(x.date)}</span></div>
+            <div class="prep-act"><button class="btn primary sm" type="button" data-conf="${esc(x.siret)}">Confirmer l'envoi</button><button class="btn ghost sm" type="button" data-nonenv="${esc(x.siret)}">Pas envoyé</button></div></div>`).join("")}</div>` : ""}
         <h3 class="mt">Candidatures</h3>
         ${d.envois.length ? `<div class="table-wrap"><table><thead><tr><th>Entreprise</th><th>Envoyée</th><th>Relance</th><th>Statut</th></tr></thead><tbody>
-          ${d.envois.slice().reverse().map((e) => `<tr><td>${/appel/.test(e.canal || "") ? "📞 " : "✉️ "}<b>${esc(e.entreprise)}</b><br><span class="muted sm">${esc(e.ville)}</span></td><td>${fr(e.envoye)}</td>
+          ${d.envois.slice().reverse().map((e) => `<tr><td>${/appel/.test(e.canal || "") ? "📞 " : "✉️ "}<b>${esc(e.entreprise)}</b><br><span class="muted sm">${esc(e.ville)}${e.confirmePar ? ` · confirmé par ${esc(e.confirmePar)}` : ""}</span></td><td>${fr(e.envoye)}</td>
           <td>${e.relanceFaite ? "faite le " + fr(e.relanceFaite) : (e.statut === "Envoyé" && e.relance <= t ? `<span class="tag warn">à faire</span>` : fr(e.relance))}</td><td>${esc(e.statut)}</td></tr>`).join("")}
         </tbody></table></div>` : `<p class="muted">Aucune candidature pour le moment.</p>`}
         <div class="dlg-foot">
@@ -1345,6 +1349,12 @@ ${nomComplet()}`;
           ${ME.gere ? `<button class="btn ghost sm danger" type="button" id="d-suppr">Retirer ce jeune</button>` : ""}
         </div>`, (root) => {
         const cv = $("#d-cv", root); if (cv) cv.addEventListener("click", () => telecharger("cv-fichier", { site: d.site, key: d.key }, d.cv.nom).catch((e) => toast(e.message)));
+        const conf = async (siret, envoye) => {
+          try { await api("confirmer-envoi", { site: d.site, key: d.key, siret, envoye }); toast(envoye ? "Envoi confirmé ✓" : "Retiré des préparées."); chargerJeunes(); ouvrirJeune(j); }
+          catch (e) { toast(e.message); }
+        };
+        $$("[data-conf]", root).forEach((b) => b.addEventListener("click", () => conf(b.dataset.conf, true)));
+        $$("[data-nonenv]", root).forEach((b) => b.addEventListener("click", () => conf(b.dataset.nonenv, false)));
         const lt = $("#d-lettre", root); if (lt) lt.addEventListener("click", () => { const p = $("#d-lettre-txt", root); p.hidden = !p.hidden; });
         $("#d-form-ok", root).addEventListener("click", async () => {
           try { await api("maj-jeune", { site: d.site, key: d.key, formateur: $("#d-form", root).value }); toast("Enregistré ✓"); chargerJeunes(); } catch (e) { toast(e.message); }

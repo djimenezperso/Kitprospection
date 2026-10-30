@@ -216,3 +216,6 @@ pre.script { white-space: pre-wrap; background: var(--blue-soft); border-radius:
 .install-sheet .is-btns { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; }
 .install-sheet .is-btns .btn.primary { flex: 1; }
 .tous-btn { width: 100%; margin: 2px 0 6px; }
+.prep-liste { display: grid; gap: 8px; margin: 8px 0 4px; }
+.prep-ligne { display: flex; gap: 10px; justify-content: space-between; align-items: center; flex-wrap: wrap; padding: 10px 12px; border: 1px dashed #e9b48f; border-radius: 12px; background: #fff8f2; }
+.prep-act { display: flex; gap: 6px; flex-wrap: wrap; }
