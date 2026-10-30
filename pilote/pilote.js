@@ -24,6 +24,7 @@
     ["administratif", "Administratif / secrétariat", "l'administratif et le secrétariat"],
     ["sport", "Sport / animation", "le sport et l'animation"],
     ["automobile", "Commerce automobile / pièces", "le commerce automobile"],
+    ["rh", "Ressources humaines / recrutement", "les ressources humaines"],
   ];
   const STATUTS = ["Envoyé", "À rappeler", "Relancé", "Réponse positive", "Entretien obtenu", "Refus", "Pris(e)"];
   const REPONSES = ["Réponse positive", "Entretien obtenu", "Refus", "Pris(e)"];
@@ -207,8 +208,19 @@
   const optMetiers = METIERS.slice().sort((a, b) => a[1].localeCompare(b[1], "fr")).map(([v, l]) => `<option value="${v}">${l}</option>`).join("") + `<option value="libre">Autre métier (je l'écris)…</option>`;
   $("#p-metier").innerHTML = `<option value="">Choisis…</option>` + optMetiers;
   $("#s-metier").innerHTML = optMetiers;
-  const majLibre = () => { $("#s-libre-l").hidden = $("#s-metier").value !== "libre"; $("#p-libre-l").hidden = $("#p-metier").value !== "libre"; };
-  $("#s-metier").addEventListener("change", () => { majLibre(); if ($("#s-metier").value === "libre") { if (!$("#s-libre").value && J && J.metierLibre) $("#s-libre").value = J.metierLibre; $("#s-libre").focus(); } });
+  // champ métier : liste de suggestions, ou n'importe quel métier écrit librement
+  $("#dl-metiers").innerHTML = METIERS.slice().sort((a, b) => a[1].localeCompare(b[1], "fr")).map(([, l]) => `<option value="${esc(l)}">`).join("");
+  const majLibre = () => {};
+  const libelleMetier = (code, libre) => (code === "libre" ? libre || "" : metierLabel(code) || "");
+  function lireMetier(prefix) {
+    const v = $(`#${prefix}-metier-txt`).value.trim(), sel = $(`#${prefix}-metier`), lib = $(`#${prefix}-libre`);
+    const m = METIERS.find((x) => normTxtJ(x[1]) === normTxtJ(v)) || METIERS.find((x) => normTxtJ(x[1].split(" / ")[0]) === normTxtJ(v));
+    if (!v) { sel.value = ""; lib.value = ""; }
+    else if (m) { sel.value = m[0]; }
+    else { sel.value = "libre"; lib.value = v; }
+  }
+  const normTxtJ = (x) => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  ["s", "p"].forEach((pf) => $(`#${pf}-metier-txt`).addEventListener("change", () => { lireMetier(pf); if (pf === "p") sauver(); }));
   $("#rayon").addEventListener("input", (e) => { $("#rayon-out").textContent = e.target.value + " km"; });
 
   function startJeune(j) {
@@ -284,6 +296,8 @@
     $("#p-metier").value = J.metier || "";
     $("#p-libre").value = J.metierLibre || ""; $("#s-libre").value = J.metierLibre || "";
     $("#s-metier").value = J.metier || "vente";
+    $("#p-metier-txt").value = libelleMetier(J.metier, J.metierLibre);
+    $("#s-metier-txt").value = libelleMetier(J.metier || "vente", J.metierLibre);
     $("#rayon").value = J.rayon || 3; $("#rayon-out").textContent = (J.rayon || 3) + " km";
     $("#p-objet").value = J.objet || objetDefaut();
     $("#p-lettre").value = J.lettre || "";
@@ -526,7 +540,7 @@ ${nomComplet()}`;
     try {
       J = (await api("profil", { genre, typ: $("#p-typ").value, metier: $("#p-metier").value, metierLibre: $("#p-libre").value.trim(), lettre: $("#p-lettre").value, objet: $("#p-objet").value, script: $("#p-script").value })).jeune;
       $("#save-etat").textContent = "Enregistré ✓"; majJeune();
-      if ($("#p-metier").value) $("#s-metier").value = $("#p-metier").value;
+      if ($("#p-metier").value) { $("#s-metier").value = $("#p-metier").value; $("#s-libre").value = $("#p-libre").value; $("#s-metier-txt").value = $("#p-metier-txt").value; }
     } catch (e) { $("#save-etat").textContent = "Pas enregistré : " + e.message; }
   }
   $("#btn-save").addEventListener("click", async () => { await sauver(); toast("Dossier enregistré ✓"); });
@@ -537,8 +551,7 @@ ${nomComplet()}`;
     if (!ancien || ancien === defOld || /^Candidature – /.test(ancien)) $("#p-objet").value = objetDefaut();
     sauver();
   });
-  $("#p-metier").addEventListener("change", () => { majLibre(); sauver(); });
-  $("#p-libre").addEventListener("change", sauver);
+
 
   function renderPret() {
     const items = [[!!J.cv, "CV déposé"], [!!(J.lettre || "").trim(), "Lettre prête"]];
@@ -551,12 +564,14 @@ ${nomComplet()}`;
   let map = null, layer = null;
   $("#f-search").addEventListener("submit", async (ev) => {
     ev.preventDefault();
+    lireMetier("s");
+    if (!$("#s-metier").value) { toast("Écris ou choisis ton métier."); $("#s-metier-txt").focus(); return; }
     const metier = $("#s-metier").value, rayon = $("#rayon").value;
-    if (metier !== J.metier || +rayon !== +J.rayon) api("profil", { metier, rayon }).then((r) => { J = r.jeune; $("#p-metier").value = J.metier; }).catch(() => {});
+    if (metier !== J.metier || +rayon !== +J.rayon) api("profil", { metier, rayon }).then((r) => { J = r.jeune; $("#p-metier").value = J.metier; $("#p-metier-txt").value = libelleMetier(J.metier, J.metierLibre); }).catch(() => {});
     const qs = new URLSearchParams({ site: J.site, metier, rayon, sal: $("#sal").checked ? "1" : "0" });
     if (metier === "libre") {
       const mot = $("#s-libre").value.trim();
-      if (mot.length < 3) { toast("Écris ton métier (au moins 3 lettres)."); $("#s-libre").focus(); return; }
+      if (mot.length < 3) { toast("Écris ton métier (au moins 3 lettres)."); $("#s-metier-txt").focus(); return; }
       qs.set("q", mot);
       if (mot !== J.metierLibre) api("profil", { metierLibre: mot }).then((r) => { J = r.jeune; }).catch(() => {});
     }
