@@ -15,6 +15,14 @@ const SITES = {
   clichy: [48.9044, 2.3059],
 };
 
+// codes postaux autour de chaque site (recherche libre par mot-clé)
+const CP_AUTOUR = {
+  clichy: "92110,92300,92600,92230,93400,75017,75018,92200,92400,92700,92390,92250,92270",
+  bagneux: "92220,92120,92240,92320,92260,92340,94110,94230,92330,75014,92140,94250,94240,92290,75015",
+  nanterre: "92000,92500,92700,92400,92800,92250,92150,95870,78400,92270,78800,92200,92060",
+  sevran: "93270,93390,93420,93600,93410,93190,93370,77290,93330", "la-courneuve": "93120,93300,93200,93800,93240,93380,93700,93230",
+  rosny: "93110,93250,93100,93340,94120,93220,93130,93330,94130", pantin: "93500,93310,93260,93230,93700,75019,75020,93170,93100",
+};
 const METIERS = {
   vente: ["47.11B", "47.11C", "47.11D", "47.11F", "47.19A", "47.19B", "47.29Z", "47.52A", "47.52B",
     "47.59B", "47.64Z", "47.65Z", "47.71Z", "47.72A"],
@@ -64,6 +72,7 @@ function joliNom(txt) {
   let t = (txt || "").trim();
   const up = t.toUpperCase();
   for (const f of FORMES) if (up.startsWith(f)) { t = t.slice(f.length); break; }
+  t = t.replace(/\s{2,}/g, " ");
   return t === t.toUpperCase() ? titre(t) : t;
 }
 
@@ -121,7 +130,7 @@ async function handler(req, res) {
     for (let page = 1; page <= 3; page++) {
       // recherche libre : mot-clé dans le nom des entreprises, départements autour des sites, puis filtre par distance
       const params = libre ? new URLSearchParams({
-        q: motcle, departement: "75,78,92,93,94,95", etat_administratif: "A",
+        q: motcle, code_postal: CP_AUTOUR[q.site] || "92110", etat_administratif: "A",
         per_page: 25, page, minimal: "true", include: "matching_etablissements", limite_matching_etablissements: 10,
       }) : new URLSearchParams({
         lat: site[0], long: site[1], radius: rayon, activite_principale: codesList.join(","),
