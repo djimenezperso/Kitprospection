@@ -208,20 +208,23 @@
 
   const optMetiers = METIERS.slice().sort((a, b) => a[1].localeCompare(b[1], "fr")).map(([v, l]) => `<option value="${v}">${l}</option>`).join("") + `<option value="libre">Autre métier (je l'écris)…</option>`;
   $("#p-metier").innerHTML = `<option value="">Choisis…</option>` + optMetiers;
-  $("#s-metier").innerHTML = optMetiers;
+  $("#s-metier").innerHTML = optMetiers + `<option value="tous">Tous les métiers</option>`;
+  const LIB_TOUS = "Tous les métiers";
   // champ métier : liste de suggestions, ou n'importe quel métier écrit librement
-  $("#dl-metiers").innerHTML = METIERS.slice().sort((a, b) => a[1].localeCompare(b[1], "fr")).map(([, l]) => `<option value="${esc(l)}">`).join("");
+  $("#dl-metiers").innerHTML = `<option value="Tous les métiers">` + METIERS.slice().sort((a, b) => a[1].localeCompare(b[1], "fr")).map(([, l]) => `<option value="${esc(l)}">`).join("");
   const majLibre = () => {};
   const libelleMetier = (code, libre) => (code === "libre" ? libre || "" : metierLabel(code) || "");
   function lireMetier(prefix) {
     const v = $(`#${prefix}-metier-txt`).value.trim(), sel = $(`#${prefix}-metier`), lib = $(`#${prefix}-libre`);
     const m = METIERS.find((x) => normTxtJ(x[1]) === normTxtJ(v)) || METIERS.find((x) => normTxtJ(x[1].split(" / ")[0]) === normTxtJ(v));
     if (!v) { sel.value = ""; lib.value = ""; }
+    else if (normTxtJ(v) === normTxtJ(LIB_TOUS)) { if (prefix === "s") sel.value = "tous"; else { sel.value = ""; lib.value = ""; } }
     else if (m) { sel.value = m[0]; }
     else { sel.value = "libre"; lib.value = v; }
   }
   const normTxtJ = (x) => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
   ["s", "p"].forEach((pf) => $(`#${pf}-metier-txt`).addEventListener("change", () => { lireMetier(pf); if (pf === "p") sauver(); }));
+  $("#btn-tous").addEventListener("click", () => { $("#s-metier-txt").value = LIB_TOUS; $("#f-search").requestSubmit(); });
   $("#rayon").addEventListener("input", (e) => { $("#rayon-out").textContent = e.target.value + " km"; });
 
   function startJeune(j) {
@@ -240,6 +243,7 @@
   function majJeune() {
     const n = (J.cv ? 1 : 0) + ((J.lettre || "").trim() ? 1 : 0);
     const etat = $("#dossier-etat"); etat.textContent = n + "/2"; etat.classList.toggle("ok", n === 2);
+    $("#btn-go-chercher").hidden = n !== 2;
     $("#nb-envois").textContent = J.envois.length;
     const t = todayIso();
     const rel = J.envois.filter((e) => ["Envoyé", "À rappeler"].includes(e.statut) && e.relance && e.relance <= t);
@@ -707,6 +711,7 @@
       const { t, photo } = await lireFichiersTexte(files, (p) => { lab.textContent = `Lecture de la photo… ${p} %`; });
       const ta = $("#p-lettre");
       ta.value = t; etatLettre(); await sauver();
+      if (!photo && dossierComplet() && /\[Entreprise\]/.test(t)) { versChercher(); return; }
       toast(photo ? "Texte lu sur la photo ✓ Relis-le bien (la lecture automatique peut faire des erreurs) et ajoute [Entreprise] si besoin." : /\[Entreprise\]/.test(t) ? "Lettre importée ✓ Vérifie le texte." : "Lettre importée ✓ Vérifie le texte et ajoute [Entreprise] là où va le nom de l'entreprise.");
       ta.scrollIntoView({ behavior: "smooth", block: "center" });
     } catch (e) { toast(e.message); }
@@ -729,7 +734,7 @@ ${nomComplet()}`;
   let saveT = null;
   function planifierSave() { $("#save-etat").textContent = "Modifications non enregistrées…"; clearTimeout(saveT); saveT = setTimeout(sauver, 1500); }
   async function sauver() {
-    clearTimeout(saveT);
+    clearTimeout(saveT); saveT = null;
     const genre = ($("input[name=genre]:checked") || {}).value || "";
     try {
       J = (await api("profil", { genre, typ: $("#p-typ").value, metier: $("#p-metier").value, metierLibre: $("#p-libre").value.trim(), lettre: $("#p-lettre").value, objet: $("#p-objet").value, script: $("#p-script").value })).jeune;
@@ -737,12 +742,14 @@ ${nomComplet()}`;
       if ($("#p-metier").value) { $("#s-metier").value = $("#p-metier").value; $("#s-libre").value = $("#p-libre").value; $("#s-metier-txt").value = $("#p-metier-txt").value; }
     } catch (e) { $("#save-etat").textContent = "Pas enregistré : " + e.message; }
   }
-  const dossierComplet = () => !!J.cv && !!(J.lettre || "").trim();
+  function dossierComplet() { return !!J.cv && !!(J.lettre || "").trim(); }
   function versChercher() {
     showSub("chercher"); window.scrollTo({ top: 0, behavior: "smooth" });
     toast("Dossier complet ✓ Maintenant, cherche des entreprises !");
   }
-  $("#btn-save").addEventListener("click", async () => { await sauver(); if (dossierComplet()) versChercher(); else toast(J.cv ? "Lettre enregistrée ✓" : "Lettre enregistrée ✓ Il manque ton CV."); });
+  $("#btn-go-chercher").addEventListener("click", async () => { if (saveT) await sauver(); versChercher(); });
+  $("#p-lettre").addEventListener("blur", () => { if (saveT) sauver(); });
+  $("#p-objet").addEventListener("blur", () => { if (saveT) sauver(); });
   $$("input[name=genre]").forEach((r) => r.addEventListener("change", sauver));
   $("#p-typ").addEventListener("change", () => {
     const ancien = $("#p-objet").value, defOld = objetDefaut();
@@ -766,7 +773,7 @@ ${nomComplet()}`;
     lireMetier("s");
     if (!$("#s-metier").value) { toast("Écris ou choisis ton métier."); $("#s-metier-txt").focus(); return; }
     const metier = $("#s-metier").value, rayon = $("#rayon").value;
-    if (metier !== J.metier || +rayon !== +J.rayon) api("profil", { metier, rayon }).then((r) => { J = r.jeune; $("#p-metier").value = J.metier; $("#p-metier-txt").value = libelleMetier(J.metier, J.metierLibre); }).catch(() => {});
+    if (metier !== "tous" && (metier !== J.metier || +rayon !== +J.rayon)) api("profil", { metier, rayon }).then((r) => { J = r.jeune; $("#p-metier").value = J.metier; $("#p-metier-txt").value = libelleMetier(J.metier, J.metierLibre); }).catch(() => {});
     const qs = new URLSearchParams({ site: J.site, metier, rayon, sal: $("#sal").checked ? "1" : "0" });
     if (metier === "libre") {
       const mot = $("#s-libre").value.trim();
