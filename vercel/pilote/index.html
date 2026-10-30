@@ -124,10 +124,10 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
           <p class="muted" style="margin-top:4px">Le CV travaillé avec ton formateur. Tu le joindras à chaque e-mail.</p>
           <div id="cv-box"></div>
           <label class="btn ghost file-btn" id="cv-label">
-            <input type="file" id="cv-input" accept=".pdf,.doc,.docx,.odt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,application/vnd.oasis.opendocument.text">
-            <span id="cv-label-txt">Déposer mon CV (PDF ou Word)</span>
+            <input type="file" id="cv-input" multiple accept=".pdf,.doc,.docx,.odt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,application/vnd.oasis.opendocument.text,image/*">
+            <span id="cv-label-txt">Déposer mon CV (PDF, Word ou photo)</span>
           </label>
-          <p class="hint">3 Mo maximum. Le format PDF est le plus sûr : il s'ouvre partout et ne bouge pas.</p>
+          <p class="hint">Ton CV est en photo ou en capture d'écran ? Choisis la ou les images (une par page) : l'outil en fait un PDF tout seul. 3 Mo maximum.</p>
         </div>
         <div class="card">
           <h2>Ma recherche</h2>
@@ -158,8 +158,8 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
         </div>
         <div class="import-lettre">
           <label class="btn primary file-btn">
-            <input type="file" id="lettre-input" accept=".docx,.pdf,.odt,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text,text/plain">
-            <span id="lettre-label-txt">Importer ma lettre (Word ou PDF)</span>
+            <input type="file" id="lettre-input" multiple accept=".docx,.pdf,.odt,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text,text/plain,image/*">
+            <span id="lettre-label-txt">Importer ma lettre (Word, PDF ou photo)</span>
           </label>
           <span class="muted sm">ou colle-la directement ci-dessous.</span>
         </div>
@@ -186,8 +186,8 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
         <p class="muted" style="margin-top:4px">Pour appeler les entreprises : le texte préparé avec ton formateur (ce que tu dis au téléphone, tes réponses aux questions). Tu l'auras sous les yeux pendant l'appel.</p>
         <div class="import-lettre">
           <label class="btn primary file-btn">
-            <input type="file" id="script-input" accept=".docx,.pdf,.odt,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text,text/plain">
-            <span id="script-label-txt">Importer mon script (Word ou PDF)</span>
+            <input type="file" id="script-input" accept=".docx,.pdf,.odt,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text,text/plain,image/*" multiple>
+            <span id="script-label-txt">Importer mon script (Word, PDF ou photo)</span>
           </label>
           <span class="muted sm">ou écris-le directement ci-dessous.</span>
         </div>

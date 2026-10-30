@@ -347,18 +347,84 @@
     last = Date.now(); lastMsg = msg; toast(msg + " Clique encore une fois pour confirmer."); return false;
   }; })();
 
+  // ----- images → PDF (CV en photo / capture d'écran) -----
+  const estImage = (f) => /^image\//.test(f.type) || /\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(f.name);
+  async function decoderImage(f) {
+    try { const bm = await createImageBitmap(f); return { src: bm, w: bm.width, h: bm.height, fin: () => bm.close && bm.close() }; }
+    catch (e) {
+      const url = URL.createObjectURL(f);
+      try { const img = new Image(); img.src = url; await img.decode(); return { src: img, w: img.naturalWidth, h: img.naturalHeight, fin: () => URL.revokeObjectURL(url) }; }
+      catch (e2) { URL.revokeObjectURL(url); throw new Error(/hei[cf]/i.test(f.type + f.name) ? "Photo au format HEIC impossible à ouvrir ici : fais une capture d'écran de la photo, ou règle l'appareil photo sur « Le plus compatible »." : `Je n'arrive pas à ouvrir l'image « ${f.name} ».`); }
+    }
+  }
+  async function imageVersCanvas(f, max) {
+    const im = await decoderImage(f);
+    const k = Math.min(1, max / Math.max(im.w, im.h));
+    const c = document.createElement("canvas"); c.width = Math.max(1, Math.round(im.w * k)); c.height = Math.max(1, Math.round(im.h * k));
+    const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(im.src, 0, 0, c.width, c.height);
+    im.fin(); return c;
+  }
+  function construirePdf(pages) {
+    const enc = new TextEncoder(), parts = [], offs = []; let len = 0;
+    const push = (x) => { const b = typeof x === "string" ? enc.encode(x) : x; parts.push(b); len += b.length; };
+    const obj = (n, body) => { offs[n] = len; push(`${n} 0 obj\n`); body(); push("\nendobj\n"); };
+    push("%PDF-1.4\n");
+    const n = pages.length;
+    obj(1, () => push("<< /Type /Catalog /Pages 2 0 R >>"));
+    obj(2, () => push(`<< /Type /Pages /Kids [${pages.map((_, i) => `${3 + i * 3} 0 R`).join(" ")}] /Count ${n} >>`));
+    pages.forEach((p, i) => {
+      const pn = 3 + i * 3, land = p.w > p.h * 1.15, W = land ? 841.89 : 595.28, H = land ? 595.28 : 841.89, m = 18;
+      const sc = Math.min((W - 2 * m) / p.w, (H - 2 * m) / p.h), dw = p.w * sc, dh = p.h * sc;
+      obj(pn, () => push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /XObject << /Im${i} ${pn + 2} 0 R >> >> /Contents ${pn + 1} 0 R >>`));
+      const c = `q ${dw.toFixed(2)} 0 0 ${dh.toFixed(2)} ${((W - dw) / 2).toFixed(2)} ${((H - dh) / 2).toFixed(2)} cm /Im${i} Do Q`;
+      obj(pn + 1, () => push(`<< /Length ${c.length} >>\nstream\n${c}\nendstream`));
+      obj(pn + 2, () => { push(`<< /Type /XObject /Subtype /Image /Width ${p.w} /Height ${p.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${p.bytes.length} >>\nstream\n`); push(p.bytes); push("\nendstream"); });
+    });
+    const total = 3 + n * 3, xref = len;
+    let x = `xref\n0 ${total}\n0000000000 65535 f \n`;
+    for (let k = 1; k < total; k++) x += String(offs[k]).padStart(10, "0") + " 00000 n \n";
+    push(x + `trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+    return new Blob(parts, { type: "application/pdf" });
+  }
+  async function imagesVersPdf(files) {
+    let q = 0.85, max = 2000;
+    for (let essai = 0; essai < 5; essai++) {
+      const pages = [];
+      for (const f of files) {
+        const c = await imageVersCanvas(f, max);
+        const b = await new Promise((ok) => c.toBlob(ok, "image/jpeg", q));
+        pages.push({ w: c.width, h: c.height, bytes: new Uint8Array(await b.arrayBuffer()) });
+      }
+      const pdf = construirePdf(pages);
+      if (pdf.size <= 2.8 * 1024 * 1024) return pdf;
+      q = Math.max(0.5, q - 0.1); max = Math.round(max * 0.82);
+    }
+    throw new Error("Images trop lourdes, même compressées. Essaie avec moins de pages.");
+  }
+  const enBase64 = (blob) => new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(",")[1]); r.onerror = ko; r.readAsDataURL(blob); });
+  const nomFichier = () => (`CV_${J.prenom || ""}_${J.nom || ""}`).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9_-]+/g, "_").replace(/_+$/, "") + ".pdf";
+
   $("#cv-input").addEventListener("change", async (ev) => {
-    const f = ev.target.files[0];
+    const files = [...ev.target.files];
     ev.target.value = "";
-    if (!f) return;
-    if (f.size > 3 * 1024 * 1024) { toast("Fichier trop lourd : 3 Mo maximum."); return; }
-    let type = f.type;
-    if (!type) type = /\.pdf$/i.test(f.name) ? "application/pdf" : /\.docx$/i.test(f.name) ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : /\.odt$/i.test(f.name) ? "application/vnd.oasis.opendocument.text" : /\.doc$/i.test(f.name) ? "application/msword" : "";
-    $("#cv-label-txt").textContent = "Envoi en cours…";
+    if (!files.length) return;
+    const images = files.filter(estImage);
+    if (images.length && images.length !== files.length) { toast("Choisis soit des photos, soit un seul fichier PDF ou Word."); return; }
+    if (!images.length && files.length > 1) { toast("Un seul fichier PDF ou Word à la fois."); return; }
+    if (images.length > 4) { toast("4 photos maximum (une par page)."); return; }
+    const f = files[0];
     try {
-      const data = await new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(",")[1]); r.onerror = ko; r.readAsDataURL(f); });
-      J = (await api("cv", { nom: f.name, type, data })).jeune;
-      renderCV(); majJeune(); toast("CV enregistré ✓");
+      let nom = f.name, type = f.type, blob = f;
+      if (images.length) {
+        $("#cv-label-txt").textContent = "Création du PDF…";
+        blob = await imagesVersPdf(images); nom = nomFichier(); type = "application/pdf";
+      } else {
+        if (f.size > 3 * 1024 * 1024) { toast("Fichier trop lourd : 3 Mo maximum."); return; }
+        if (!type) type = /\.pdf$/i.test(f.name) ? "application/pdf" : /\.docx$/i.test(f.name) ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : /\.odt$/i.test(f.name) ? "application/vnd.oasis.opendocument.text" : /\.doc$/i.test(f.name) ? "application/msword" : "";
+      }
+      $("#cv-label-txt").textContent = "Envoi en cours…";
+      J = (await api("cv", { nom, type, data: await enBase64(blob) })).jeune;
+      renderCV(); majJeune(); toast(images.length ? `CV enregistré en PDF ✓ (${images.length} page${images.length > 1 ? "s" : ""}). Clique sur « Télécharger » pour vérifier.` : "CV enregistré ✓");
     } catch (e) { toast(e.message); renderCV(); }
   });
 
@@ -486,6 +552,69 @@
     if (buf2) paras.push(buf2);
     return espacerParagraphes(paras);
   }
+  // ----- lecture du texte d'une photo (OCR, dans le navigateur) -----
+  let tessP = null;
+  function chargerTesseract() {
+    if (window.Tesseract) return Promise.resolve(window.Tesseract);
+    return tessP = tessP || new Promise((ok, ko) => {
+      const sc = document.createElement("script");
+      sc.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
+      sc.onload = () => ok(window.Tesseract);
+      sc.onerror = () => { tessP = null; ko(new Error("Lecture des photos indisponible pour le moment. Colle le texte de ta lettre ci-dessous.")); };
+      document.head.appendChild(sc);
+    });
+  }
+  async function ocr(canvases, prog) {
+    const T = await chargerTesseract();
+    let idx = 0;
+    prog && prog(0);
+    const worker = await T.createWorker("fra", 1, { logger: (m) => { if (prog && m.status === "recognizing text") prog(Math.round((idx + m.progress) / canvases.length * 100)); } });
+    const out = [];
+    try { for (idx = 0; idx < canvases.length; idx++) out.push((await worker.recognize(canvases[idx])).data.text || ""); }
+    finally { worker.terminate(); }
+    // recoller les lignes d'un même paragraphe
+    const paras = [];
+    out.join("\n\n").replace(/\r/g, "").split(/\n\s*\n/).forEach((bloc) => {
+      let cur = "";
+      bloc.split("\n").map((l) => l.trim()).filter(Boolean).forEach((l) => {
+        if (!cur) { cur = l; return; }
+        const prevCourt = cur.split("\n").pop().length < 45;
+        if (prevCourt) { paras.push(cur); cur = l; }
+        else cur = /[-‐]$/.test(cur) ? cur.slice(0, -1) + l : cur + " " + l;
+      });
+      if (cur) paras.push(cur);
+      paras.push("");
+    });
+    return espacerParagraphes(paras.slice(0, -1)).replace(/[|]/g, "I").replace(/\s+([,.])/g, "$1");
+  }
+  async function pdfVersCanvas(buf) {
+    const lib = await chargerPdfJs();
+    const pdf = await lib.getDocument({ data: new Uint8Array(buf) }).promise, res = [];
+    for (let i = 1; i <= Math.min(pdf.numPages, 3); i++) {
+      const page = await pdf.getPage(i), vp = page.getViewport({ scale: 2 });
+      const c = document.createElement("canvas"); c.width = vp.width; c.height = vp.height;
+      await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise; res.push(c);
+    }
+    return res;
+  }
+  async function lireFichiersTexte(files, prog) {
+    const images = files.filter(estImage);
+    if (images.length) {
+      if (images.length !== files.length) throw new Error("Choisis soit des photos, soit un seul fichier.");
+      if (images.length > 3) throw new Error("3 photos maximum.");
+      const cs = []; for (const f of images) cs.push(await imageVersCanvas(f, 2400));
+      const t = nettoyerLettre(await ocr(cs, prog));
+      if (t.length < 20) throw new Error("Je n'arrive pas à lire le texte de cette photo. Reprends-la bien à plat, nette et éclairée, ou colle le texte.");
+      return { t, photo: true };
+    }
+    try { return { t: await lireFichierTexte(files[0]) }; }
+    catch (e) {
+      if (!e.scan) throw e;
+      const t = nettoyerLettre(await ocr(await pdfVersCanvas(await files[0].arrayBuffer()), prog));
+      if (t.length < 20) throw new Error("Je n'arrive pas à lire le texte de ce document. Essaie avec le fichier Word, ou colle le texte.");
+      return { t, photo: true };
+    }
+  }
   function nettoyerLettre(t) {
     return t.replace(/\r/g, "").replace(/\u00a0/g, " ").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n")
       .replace(/\[[^\]\n]{0,40}(entreprise|soci[ée]t[ée]|structure|enseigne)[^\]\n]{0,40}\]/gi, "[Entreprise]")
@@ -502,18 +631,18 @@
     else if (/\.doc$/.test(nom)) throw new Error("Ancien format Word (.doc) : enregistre le fichier en .docx ou en PDF, puis réessaie.");
     else throw new Error("Format non reconnu : Word (.docx), PDF ou texte.");
     t = nettoyerLettre(t);
-    if (t.length < 20) throw new Error("Je n'arrive pas à lire le texte de ce fichier (document scanné ?). Essaie avec le fichier Word, ou colle le texte.");
+    if (t.length < 20) { const e = new Error("Je n'arrive pas à lire le texte de ce fichier (document scanné ?). Essaie avec le fichier Word, ou colle le texte."); e.scan = /\.pdf$/.test(nom); throw e; }
     return t;
   }
   $("#script-input").addEventListener("change", async (ev) => {
-    const f = ev.target.files[0]; ev.target.value = "";
-    if (!f) return;
+    const files = [...ev.target.files]; ev.target.value = "";
+    if (!files.length) return;
     const lab = $("#script-label-txt"), txt0 = lab.textContent;
     lab.textContent = "Lecture en cours…";
     try {
-      const t = await lireFichierTexte(f);
+      const { t, photo } = await lireFichiersTexte(files, (p) => { lab.textContent = `Lecture de la photo… ${p} %`; });
       $("#p-script").value = t; etatScript(); await sauver();
-      toast("Script importé ✓ Vérifie le texte.");
+      toast(photo ? "Texte lu sur la photo ✓ Relis-le bien : la lecture automatique peut faire des erreurs." : "Script importé ✓ Vérifie le texte.");
       $("#p-script").scrollIntoView({ behavior: "smooth", block: "center" });
     } catch (e) { toast(e.message); }
     finally { lab.textContent = txt0; }
@@ -525,15 +654,15 @@
   $("#p-script").addEventListener("input", () => { etatScript(); planifierSave(); });
   $("#btn-save-script").addEventListener("click", async () => { await sauver(); toast("Script enregistré ✓"); });
   $("#lettre-input").addEventListener("change", async (ev) => {
-    const f = ev.target.files[0]; ev.target.value = "";
-    if (!f) return;
+    const files = [...ev.target.files]; ev.target.value = "";
+    if (!files.length) return;
     const lab = $("#lettre-label-txt"), txt0 = lab.textContent;
     lab.textContent = "Lecture en cours…";
     try {
-      const t = await lireFichierTexte(f);
+      const { t, photo } = await lireFichiersTexte(files, (p) => { lab.textContent = `Lecture de la photo… ${p} %`; });
       const ta = $("#p-lettre");
       ta.value = t; etatLettre(); await sauver();
-      toast(/\[Entreprise\]/.test(t) ? "Lettre importée ✓ Vérifie le texte." : "Lettre importée ✓ Vérifie le texte et ajoute [Entreprise] là où va le nom de l'entreprise.");
+      toast(photo ? "Texte lu sur la photo ✓ Relis-le bien (la lecture automatique peut faire des erreurs) et ajoute [Entreprise] si besoin." : /\[Entreprise\]/.test(t) ? "Lettre importée ✓ Vérifie le texte." : "Lettre importée ✓ Vérifie le texte et ajoute [Entreprise] là où va le nom de l'entreprise.");
       ta.scrollIntoView({ behavior: "smooth", block: "center" });
     } catch (e) { toast(e.message); }
     finally { lab.textContent = txt0; }
