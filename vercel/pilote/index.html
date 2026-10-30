@@ -136,7 +136,7 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
             </select>
           </label>
           <label>Métier recherché
-            <select id="p-metier"></select>
+            <input id="p-metier-txt" list="dl-metiers" autocomplete="off" placeholder="Choisis dans la liste ou écris ton métier"><select id="p-metier" hidden></select>
           </label>
           <label id="p-libre-l" hidden>Mon métier
             <input id="p-libre" placeholder="ex. maintenance industrielle" maxlength="60">
@@ -196,8 +196,10 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
         <h2>Chercher des entreprises</h2>
         <p class="muted" style="margin-top:4px">Autour de ton site E2C.</p>
         <label>Métier
-          <select id="s-metier"></select>
+          <input id="s-metier-txt" list="dl-metiers" autocomplete="off" placeholder="Choisis dans la liste ou écris ton métier"><select id="s-metier" hidden></select>
         </label>
+        <datalist id="dl-metiers"></datalist>
+        <p class="hint" style="margin-top:-4px">Tape ton métier : choisis-le dans la liste, ou écris celui que tu veux (ex. fleuriste, pressing).</p>
         <label id="s-libre-l" hidden>Mon métier (mot-clé)
           <input id="s-libre" placeholder="ex. maintenance, pressing, fleuriste…" maxlength="60">
         </label>

@@ -27,6 +27,7 @@
     ["administratif", "Administratif / secrétariat", "l'administratif et le secrétariat"],
     ["sport", "Sport / animation", "le sport et l'animation"],
     ["automobile", "Commerce automobile / pièces", "le commerce automobile"],
+    ["rh", "Ressources humaines / recrutement", "les ressources humaines"],
   ];
   const STATUTS = ["Envoyé", "Réponse positive", "Entretien obtenu", "Refus"];
   const RELANCE = 7;
