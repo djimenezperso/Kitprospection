@@ -94,6 +94,7 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
         <p class="hint">Chaque personne a son propre code. Il ne se partage pas. <a href="#" id="lien-oubli">Code oublié ?</a></p>
       </form>
     </div>
+    <p class="center"><button class="btn ghost sm" type="button" data-installer hidden>➕ Ajouter à l'écran d'accueil</button></p>
     <p class="muted center">Vous voulez seulement découvrir l'outil ? <a href="/">Ouvrir la démo</a></p>
     <p class="muted center sm">Conçu par <a href="https://conoce-al-creador.vercel.app" target="_blank" rel="noopener">Djimenez AI</a></p>
   </section>
@@ -105,7 +106,7 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
       <p id="j-sous">Ton site : …</p>
       <div class="row-btns" style="margin-top:10px">
         <button class="btn ghost sm" type="button" id="btn-partage">📲 Partager avec un camarade</button>
-        <button class="btn ghost sm" type="button" id="btn-installer" hidden>➕ Ajouter à l'écran d'accueil</button>
+        <button class="btn ghost sm" type="button" id="btn-installer" data-installer hidden>➕ Ajouter à l'écran d'accueil</button>
       </div>
     </div>
     <div id="j-banner" class="banner" hidden></div>
@@ -268,6 +269,7 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
     <div class="hero">
       <h1 id="e-titre">Le groupe en un coup d'œil.</h1>
       <p id="e-sous"></p>
+      <button class="btn ghost sm" type="button" data-installer hidden style="margin-top:10px">➕ Ajouter à l'écran d'accueil</button>
     </div>
     <nav class="subtabs" id="e-sites" aria-label="Sites"></nav>
     <div class="vues" role="tablist" aria-label="Affichage">
