@@ -2,6 +2,7 @@
 // Source : API Recherche d'entreprises (data.gouv.fr), publique et sans clé.
 
 const API_URL = "https://recherche-entreprises.api.gouv.fr/near_point";
+const SEARCH_URL = "https://recherche-entreprises.api.gouv.fr/search";
 
 // Coordonnées approximatives (centre-ville) — à remplacer par l'adresse exacte de chaque site.
 const SITES = {
@@ -27,6 +28,14 @@ const METIERS = {
   logistique: ["52.10B", "52.29B", "53.20Z"],
   batiment: ["43.21A", "43.22A", "43.22B", "43.32A", "43.34Z", "43.39Z"],
   hotellerie: ["55.10Z"],
+  maintenance: ["33.11Z", "33.12Z", "33.13Z", "33.14Z", "33.19Z", "33.20A", "33.20B", "33.20C", "33.20D", "43.22B", "81.10Z"],
+  securite: ["80.10Z", "80.20Z"],
+  transport: ["49.41A", "49.41B", "49.42Z", "52.29A", "53.20Z"],
+  informatique: ["62.01Z", "62.02A", "62.03Z", "62.09Z", "95.11Z", "95.12Z"],
+  espacesverts: ["81.30Z"],
+  administratif: ["82.11Z", "82.19Z", "69.10Z", "69.20Z", "78.10Z", "78.20Z"],
+  sport: ["93.11Z", "93.12Z", "93.13Z", "93.19Z", "85.51Z"],
+  automobile: ["45.11Z", "45.19Z", "45.31Z", "45.32Z", "45.40Z"],
 };
 
 const EFFECTIFS = {
@@ -60,14 +69,14 @@ function joliNom(txt) {
 
 const aSalaries = (c) => !!c && c !== "NN" && c !== "00";
 
-function extraire(results, codes, lat, lon, rayon, salariesSeulement) {
+function extraire(results, codes, lat, lon, rayon, salariesSeulement) { // codes = null : toutes activités (recherche libre)
   const vus = new Set(), out = [];
   for (const ent of results) {
     const effEnt = ent.tranche_effectif_salarie;
     for (const et of ent.matching_etablissements || []) {
       const siret = et.siret;
       if (!siret || vus.has(siret)) continue;
-      if (et.etat_administratif !== "A" || !codes.has(et.activite_principale)) continue;
+      if (et.etat_administratif !== "A" || (codes && !codes.has(et.activite_principale))) continue;
       const eff = et.tranche_effectif_salarie;
       if (salariesSeulement && !(aSalaries(eff) || aSalaries(effEnt))) continue;
       const elat = parseFloat(et.latitude), elon = parseFloat(et.longitude);
@@ -94,32 +103,43 @@ function extraire(results, codes, lat, lon, rayon, salariesSeulement) {
 async function handler(req, res) {
   const q = req.query || {};
   const site = SITES[q.site];
-  const codesList = METIERS[q.metier];
+  const libre = q.metier === "libre";
+  const motcle = String(q.q || "").trim().slice(0, 60);
+  const codesList = libre ? [] : METIERS[q.metier];
   const rayon = Math.min(Math.max(parseFloat(q.rayon) || 3, 0.5), 15);
   const sal = q.sal !== "0";
   if (!site || !codesList) {
     res.status(400).json({ error: "Site ou métier inconnu." });
     return;
   }
+  if (libre && motcle.length < 3) {
+    res.status(400).json({ error: "Écris au moins 3 lettres pour ton métier." });
+    return;
+  }
   try {
     const results = [];
     for (let page = 1; page <= 3; page++) {
-      const params = new URLSearchParams({
+      // recherche libre : mot-clé dans le nom des entreprises, départements autour des sites, puis filtre par distance
+      const params = libre ? new URLSearchParams({
+        q: motcle, departement: "75,78,92,93,94,95", etat_administratif: "A",
+        per_page: 25, page, minimal: "true", include: "matching_etablissements", limite_matching_etablissements: 10,
+      }) : new URLSearchParams({
         lat: site[0], long: site[1], radius: rayon, activite_principale: codesList.join(","),
         per_page: 25, page, minimal: "true", include: "matching_etablissements",
         limite_matching_etablissements: 10,
       });
-      let r = await fetch(`${API_URL}?${params}`, { headers: { "User-Agent": "kit-prospection-demo/1.0" } });
+      const url = libre ? `${SEARCH_URL}?${params}` : `${API_URL}?${params}`;
+      let r = await fetch(url, { headers: { "User-Agent": "kit-prospection-demo/1.0" } });
       if (r.status === 429) {
         await new Promise((ok) => setTimeout(ok, 1200));
-        r = await fetch(`${API_URL}?${params}`, { headers: { "User-Agent": "kit-prospection-demo/1.0" } });
+        r = await fetch(url, { headers: { "User-Agent": "kit-prospection-demo/1.0" } });
       }
       if (!r.ok) throw new Error(`registre ${r.status}`);
       const data = await r.json();
       results.push(...(data.results || []));
       if (page >= (data.total_pages || 1)) break;
     }
-    const list = extraire(results, new Set(codesList), site[0], site[1], rayon, sal);
+    const list = extraire(results, libre ? null : new Set(codesList), site[0], site[1], rayon, sal);
     res.setHeader("Cache-Control", "s-maxage=86400, stale-while-revalidate=3600");
     res.status(200).json({ site: { lat: site[0], lon: site[1] }, entreprises: list.slice(0, 40) });
   } catch (e) {

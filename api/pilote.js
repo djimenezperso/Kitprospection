@@ -131,7 +131,7 @@ const jeunePath = (site, key) => `jeunes/${site}/${key}.json`;
 function vueJeune(j) {
   return {
     site: j.site, siteNom: SITES[j.site], prenom: j.prenom, nom: j.nom, ident: j.ident, test: !!j.test, genre: j.genre || "",
-    typ: j.typ || "", metier: j.metier || "", rayon: j.rayon || 3, lettre: j.lettre || "", objet: j.objet || "", script: j.script || "",
+    typ: j.typ || "", metier: j.metier || "", metierLibre: j.metierLibre || "", rayon: j.rayon || 3, lettre: j.lettre || "", objet: j.objet || "", script: j.script || "",
     cv: j.cv ? { nom: j.cv.nom, taille: j.cv.taille, date: j.cv.date } : null,
     envois: j.envois || [],
     prepares: (j.prepares || []).filter((x) => !(j.envois || []).some((e) => e.siret === x.siret)),
@@ -144,7 +144,7 @@ function resume(j) {
   const reponses = env.filter((e) => !["Envoyé", "Relancé"].includes(e.statut)).length;
   return {
     key: j.key, site: j.site, prenom: j.prenom, nom: j.nom, ident: j.ident, test: !!j.test, code: j.code || "", groupe: j.groupe || "", formateur: j.formateur || "",
-    metier: j.metier || "", typ: j.typ || "", cv: !!j.cv, lettre: !!(j.lettre && j.lettre.trim()),
+    metier: j.metier || "", metierLibre: j.metierLibre || "", typ: j.typ || "", cv: !!j.cv, lettre: !!(j.lettre && j.lettre.trim()),
     envois: env.length, relances: env.filter((e) => e.relanceFaite || e.statut === "Relancé").length,
     reponses, entretiens: env.filter((e) => e.statut === "Entretien obtenu").length,
     pris: env.filter((e) => e.statut === "Pris(e)").length, aRelancer,
@@ -324,6 +324,7 @@ const actions = {
     if (b.genre !== undefined) j.genre = ["F", "M"].includes(b.genre) ? b.genre : "";
     if (b.typ !== undefined) j.typ = ["stage", "alternance", "emploi"].includes(b.typ) ? b.typ : "";
     if (b.metier !== undefined) j.metier = clean(b.metier, 40);
+    if (b.metierLibre !== undefined) j.metierLibre = clean(b.metierLibre, 60);
     if (b.rayon !== undefined) j.rayon = Math.min(Math.max(+b.rayon || 3, 1), 10);
     if (b.lettre !== undefined) j.lettre = clean(b.lettre, 8000);
     if (b.objet !== undefined) j.objet = clean(b.objet, 200);
@@ -796,7 +797,9 @@ async function jeunesDe(sites) {
 
 const METIER_NOMS = { vente: "Vente / commerce", boulangerie: "Boulangerie / pâtisserie", restauration: "Cuisine / restauration",
   mecanique: "Mécanique automobile", aide: "Aide à la personne", enfance: "Petite enfance", proprete: "Propreté / entretien",
-  coiffure: "Coiffure / esthétique", logistique: "Logistique", batiment: "Bâtiment", hotellerie: "Hôtellerie / accueil" };
+  coiffure: "Coiffure / esthétique", logistique: "Logistique", batiment: "Bâtiment", hotellerie: "Hôtellerie / accueil",
+  maintenance: "Maintenance industrielle", securite: "Sécurité", transport: "Transport / livraison", informatique: "Informatique",
+  espacesverts: "Espaces verts", administratif: "Administratif", sport: "Sport / animation", automobile: "Commerce automobile", libre: "Autre métier" };
 const frDate = (iso) => (iso ? iso.slice(8, 10) + "/" + iso.slice(5, 7) + "/" + iso.slice(0, 4) : "");
 
 async function exporter(req, res, s) {
