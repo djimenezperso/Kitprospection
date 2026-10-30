@@ -11,6 +11,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#152238">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Kit E2C">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="stylesheet" href="/style.css">
 <link rel="stylesheet" href="/pilote/pilote.css">
 <script>
@@ -98,7 +103,10 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
     <div class="hero">
       <h1 id="j-hello">Bonjour !</h1>
       <p id="j-sous">Ton site : …</p>
-      <button class="btn ghost sm partage-btn" type="button" id="btn-partage">📲 Partager avec un camarade</button>
+      <div class="row-btns" style="margin-top:10px">
+        <button class="btn ghost sm" type="button" id="btn-partage">📲 Partager avec un camarade</button>
+        <button class="btn ghost sm" type="button" id="btn-installer" hidden>➕ Ajouter à l'écran d'accueil</button>
+      </div>
     </div>
     <div id="j-banner" class="banner" hidden></div>
 

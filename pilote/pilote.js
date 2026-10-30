@@ -167,7 +167,7 @@
   const params = new URLSearchParams(location.search);
   function initLogin() {
     vue("login");
-    const site = params.get("site");
+    const site = params.get("site") || ls.get("kp_site");
     if (SITES[site]) {
       $("#lj-site").value = site;
       $("#login-titre").textContent = `E2C ${SITES[site]} : bienvenue sur ton Kit de prospection.`;
@@ -180,7 +180,7 @@
     const btn = ev.submitter || $("#f-jeune button[type=submit]"); btn.disabled = true;
     try {
       const r = await api("login-jeune", { site: $("#lj-site").value, ident: $("#lj-ident").value });
-      ls.set(TK, r.token); ls.set(KIND, "j");
+      ls.set(TK, r.token); ls.set(KIND, "j"); ls.set("kp_site", $("#lj-site").value);
       startJeune(r.jeune);
     } catch (e) { err.textContent = e.message; err.hidden = false; }
     finally { btn.disabled = false; }
@@ -227,6 +227,7 @@
     J = j;
     vue("jeune");
     $("#who-txt").textContent = `${J.prenom} · E2C ${J.siteNom}`;
+    majBoutonInstall();
     $("#j-hello").textContent = J.test ? "Compte de démonstration" : `Bonjour ${J.prenom} !`;
     $("#j-sous").textContent = J.test ? `E2C ${J.siteNom} · Vous voyez exactement ce que voit un stagiaire. Ce compte est partagé par l'équipe et n'entre pas dans les statistiques : n'y mettez pas de vraies données.` : `E2C ${J.siteNom}. Prépare ton dossier, cherche, envoie, relance.`;
     remplirDossier();
@@ -268,6 +269,25 @@
     if (name === "suivi") renderSuivi();
     if (name === "chercher") { renderPret(); if (map) setTimeout(() => map.invalidateSize(), 50); }
   }
+
+  // ----- installer sur l'écran d'accueil -----
+  let invitInstall = null;
+  const estInstalle = () => window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  const estIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+  window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); invitInstall = e; majBoutonInstall(); });
+  window.addEventListener("appinstalled", () => { invitInstall = null; majBoutonInstall(); toast("Le Kit est sur ton écran d'accueil ✓"); });
+  function majBoutonInstall() { const b = $("#btn-installer"); if (b) b.hidden = estInstalle() || !(invitInstall || estIOS || /android/i.test(navigator.userAgent)); }
+  $("#btn-installer").addEventListener("click", async () => {
+    if (invitInstall) { invitInstall.prompt(); try { await invitInstall.userChoice; } catch (e) { /* */ } invitInstall = null; majBoutonInstall(); return; }
+    ouvrirDlg(estIOS ? `<h2>Ajouter à l'écran d'accueil</h2>
+      <ol class="etapes"><li>Touche le bouton <b>Partager</b> <span aria-hidden="true">⬆️</span> en bas de Safari (ou en haut à droite).</li>
+      <li>Fais défiler et choisis <b>« Sur l'écran d'accueil »</b>.</li><li>Touche <b>Ajouter</b>.</li></ol>
+      <p class="muted">L'icône « Kit E2C » apparaîtra sur ton téléphone, comme une application. Sur iPhone, il faut ouvrir la page dans Safari.</p>`
+      : `<h2>Ajouter à l'écran d'accueil</h2>
+      <ol class="etapes"><li>Ouvre le menu <b>⋮</b> de ton navigateur (en haut à droite).</li><li>Choisis <b>« Ajouter à l'écran d'accueil »</b> ou <b>« Installer l'application »</b>.</li><li>Confirme.</li></ol>
+      <p class="muted">L'icône « Kit E2C » apparaîtra sur ton téléphone, comme une application.</p>`);
+  });
 
   // ----- partager l'outil avec un camarade -----
   $("#btn-partage").addEventListener("click", () => {
