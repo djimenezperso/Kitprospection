@@ -148,6 +148,7 @@ function resume(j) {
     envois: env.length, relances: env.filter((e) => e.relanceFaite || e.statut === "Relancé").length,
     reponses, entretiens: env.filter((e) => e.statut === "Entretien obtenu").length,
     pris: env.filter((e) => e.statut === "Pris(e)").length, aRelancer,
+    prepares: (j.prepares || []).filter((x) => !env.some((e) => e.siret === x.siret)).length,
     derniere: j.vu || "", cree: j.cree || "",
     connecte: !!(j.premiere || j.vu),
     actif7: (j.jours || []).some((d) => d >= ajouterJours(t, -6)) || (j.vu || "").slice(0, 10) >= ajouterJours(t, -6),
@@ -541,6 +542,24 @@ const actions = {
     needSite(me, b.site);
     const j = await loadJeune(b.site, b.key);
     delete j.premiere; delete j.vu; delete j.jours;
+    await saveJeune(j);
+    return { ok: true };
+  },
+  // le formateur confirme (ou non) un e-mail préparé que le jeune n'a pas marqué comme envoyé
+  async "confirmer-envoi"(req, b, s) {
+    const me = await needStaff(s);
+    needSite(me, b.site);
+    const j = await loadJeune(b.site, b.key);
+    const p = (j.prepares || []).find((x) => x.siret === b.siret);
+    if (!p) fail(404, "Candidature préparée introuvable.");
+    j.prepares = j.prepares.filter((x) => x.siret !== b.siret);
+    j.envois = j.envois || [];
+    if (b.envoye && !j.envois.some((e) => e.siret === p.siret)) {
+      const d = todayParis();
+      j.envois.push({ siret: p.siret, entreprise: p.entreprise, adresse: p.adresse, ville: p.ville, metier: j.metier || "", typ: j.typ || "",
+        envoye: p.date || d, relance: relanceDate(p.date || d), statut: "Envoyé", relanceFaite: "", maj: now(), canal: "email", email: "", confirmePar: clean(me.nom, 80) });
+      if (!j.test) await noterContact(j.site, p.siret, j.key);
+    }
     await saveJeune(j);
     return { ok: true };
   },
