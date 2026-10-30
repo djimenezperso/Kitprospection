@@ -19,6 +19,14 @@
     ["logistique", "Logistique / magasinage", "la logistique"],
     ["batiment", "Bâtiment (électricité, plomberie, peinture)", "le bâtiment"],
     ["hotellerie", "Hôtellerie / accueil", "l'hôtellerie et l'accueil"],
+    ["maintenance", "Maintenance industrielle", "la maintenance industrielle"],
+    ["securite", "Sécurité / prévention", "la sécurité"],
+    ["transport", "Transport / livraison", "le transport et la livraison"],
+    ["informatique", "Informatique / réparation", "l'informatique"],
+    ["espacesverts", "Espaces verts / paysage", "les espaces verts"],
+    ["administratif", "Administratif / secrétariat", "l'administratif et le secrétariat"],
+    ["sport", "Sport / animation", "le sport et l'animation"],
+    ["automobile", "Commerce automobile / pièces", "le commerce automobile"],
   ];
   const STATUTS = ["Envoyé", "Réponse positive", "Entretien obtenu", "Refus"];
   const RELANCE = 7;

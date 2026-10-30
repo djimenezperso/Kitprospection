@@ -16,6 +16,14 @@
     ["logistique", "Logistique / magasinage", "la logistique"],
     ["batiment", "Bâtiment (électricité, plomberie, peinture)", "le bâtiment"],
     ["hotellerie", "Hôtellerie / accueil", "l'hôtellerie et l'accueil"],
+    ["maintenance", "Maintenance industrielle", "la maintenance industrielle"],
+    ["securite", "Sécurité / prévention", "la sécurité"],
+    ["transport", "Transport / livraison", "le transport et la livraison"],
+    ["informatique", "Informatique / réparation", "l'informatique"],
+    ["espacesverts", "Espaces verts / paysage", "les espaces verts"],
+    ["administratif", "Administratif / secrétariat", "l'administratif et le secrétariat"],
+    ["sport", "Sport / animation", "le sport et l'animation"],
+    ["automobile", "Commerce automobile / pièces", "le commerce automobile"],
   ];
   const STATUTS = ["Envoyé", "À rappeler", "Relancé", "Réponse positive", "Entretien obtenu", "Refus", "Pris(e)"];
   const REPONSES = ["Réponse positive", "Entretien obtenu", "Refus", "Pris(e)"];
@@ -24,7 +32,7 @@
   const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const metierLabel = (id) => (METIERS.find((m) => m[0] === id) || [, ""])[1];
-  const domaine = (id) => (METIERS.find((m) => m[0] === id) || [, , "ce métier"])[2];
+  const domaine = (id) => id === "libre" && J && J.metierLibre ? J.metierLibre.toLowerCase() : (METIERS.find((m) => m[0] === id) || [, , "ce métier"])[2];
   const article = (t) => ({ stage: "un stage", alternance: "une alternance", emploi: "un emploi" }[t] || "un stage");
 
   // ---------- session ----------
@@ -196,8 +204,11 @@
   const nomComplet = () => `${J.prenom} ${J.nom}`.trim();
   const objetDefaut = () => `Candidature – ${article(J.typ)} – ${nomComplet()}`;
 
-  $("#p-metier").innerHTML = `<option value="">Choisis…</option>` + METIERS.map(([v, l]) => `<option value="${v}">${l}</option>`).join("");
-  $("#s-metier").innerHTML = METIERS.map(([v, l]) => `<option value="${v}">${l}</option>`).join("");
+  const optMetiers = METIERS.slice().sort((a, b) => a[1].localeCompare(b[1], "fr")).map(([v, l]) => `<option value="${v}">${l}</option>`).join("") + `<option value="libre">Autre métier (je l'écris)…</option>`;
+  $("#p-metier").innerHTML = `<option value="">Choisis…</option>` + optMetiers;
+  $("#s-metier").innerHTML = optMetiers;
+  const majLibre = () => { $("#s-libre-l").hidden = $("#s-metier").value !== "libre"; $("#p-libre-l").hidden = $("#p-metier").value !== "libre"; };
+  $("#s-metier").addEventListener("change", () => { majLibre(); if ($("#s-metier").value === "libre") { if (!$("#s-libre").value && J && J.metierLibre) $("#s-libre").value = J.metierLibre; $("#s-libre").focus(); } });
   $("#rayon").addEventListener("input", (e) => { $("#rayon-out").textContent = e.target.value + " km"; });
 
   function startJeune(j) {
@@ -271,12 +282,13 @@
     $$("input[name=genre]").forEach((r) => { r.checked = r.value === J.genre; });
     $("#p-typ").value = J.typ || "stage";
     $("#p-metier").value = J.metier || "";
+    $("#p-libre").value = J.metierLibre || ""; $("#s-libre").value = J.metierLibre || "";
     $("#s-metier").value = J.metier || "vente";
     $("#rayon").value = J.rayon || 3; $("#rayon-out").textContent = (J.rayon || 3) + " km";
     $("#p-objet").value = J.objet || objetDefaut();
     $("#p-lettre").value = J.lettre || "";
     $("#p-script").value = J.script || "";
-    renderCV(); etatLettre(); etatScript();
+    renderCV(); etatLettre(); etatScript(); majLibre();
   }
   function renderCV() {
     const box = $("#cv-box");
@@ -512,7 +524,7 @@ ${nomComplet()}`;
     clearTimeout(saveT);
     const genre = ($("input[name=genre]:checked") || {}).value || "";
     try {
-      J = (await api("profil", { genre, typ: $("#p-typ").value, metier: $("#p-metier").value, lettre: $("#p-lettre").value, objet: $("#p-objet").value, script: $("#p-script").value })).jeune;
+      J = (await api("profil", { genre, typ: $("#p-typ").value, metier: $("#p-metier").value, metierLibre: $("#p-libre").value.trim(), lettre: $("#p-lettre").value, objet: $("#p-objet").value, script: $("#p-script").value })).jeune;
       $("#save-etat").textContent = "Enregistré ✓"; majJeune();
       if ($("#p-metier").value) $("#s-metier").value = $("#p-metier").value;
     } catch (e) { $("#save-etat").textContent = "Pas enregistré : " + e.message; }
@@ -525,7 +537,8 @@ ${nomComplet()}`;
     if (!ancien || ancien === defOld || /^Candidature – /.test(ancien)) $("#p-objet").value = objetDefaut();
     sauver();
   });
-  $("#p-metier").addEventListener("change", sauver);
+  $("#p-metier").addEventListener("change", () => { majLibre(); sauver(); });
+  $("#p-libre").addEventListener("change", sauver);
 
   function renderPret() {
     const items = [[!!J.cv, "CV déposé"], [!!(J.lettre || "").trim(), "Lettre prête"]];
@@ -541,6 +554,12 @@ ${nomComplet()}`;
     const metier = $("#s-metier").value, rayon = $("#rayon").value;
     if (metier !== J.metier || +rayon !== +J.rayon) api("profil", { metier, rayon }).then((r) => { J = r.jeune; $("#p-metier").value = J.metier; }).catch(() => {});
     const qs = new URLSearchParams({ site: J.site, metier, rayon, sal: $("#sal").checked ? "1" : "0" });
+    if (metier === "libre") {
+      const mot = $("#s-libre").value.trim();
+      if (mot.length < 3) { toast("Écris ton métier (au moins 3 lettres)."); $("#s-libre").focus(); return; }
+      qs.set("q", mot);
+      if (mot !== J.metierLibre) api("profil", { metierLibre: mot }).then((r) => { J = r.jeune; }).catch(() => {});
+    }
     $("#empty").hidden = true; $("#error").hidden = true; $("#res").hidden = true; $("#loading").hidden = false;
     try {
       const r = await fetch("/api/entreprises?" + qs);
@@ -921,7 +940,7 @@ ${nomComplet()}`;
     $("#c-table tbody").innerHTML = js.map((j, i) => `<tr data-i="${i}" tabindex="0" class="${j.envois === 0 && !j.test ? "flag" : ""}">
       <td><b>${esc(j.prenom)} ${esc(j.nom)}</b>${j.test ? ` <span class="tag blue">Compte test</span>` : ""}<br><span class="muted sm">${esc(j.ident)}${j.groupe ? " · gr. " + esc(j.groupe) : ""}${j.formateur ? " · " + esc(j.formateur) : ""}</span></td>
       <td class="col-site">${esc(SITES[j.site])}</td>
-      <td>${esc(metierLabel(j.metier) || "—")}</td>
+      <td>${esc(j.metier === "libre" ? (j.metierLibre || "Autre") : (metierLabel(j.metier) || "—"))}</td>
       <td class="nowrap"><span class="tag ${j.cv ? "ok" : "bad"}">CV</span> <span class="tag ${j.lettre ? "ok" : "bad"}">Lettre</span></td>
       <td class="num">${j.envois}</td><td class="num">${j.reponses}</td>
       <td class="num">${j.envois === 0 ? `<span class="tag bad">Aucun envoi</span>` : j.aRelancer ? `<span class="tag warn">${j.aRelancer}</span>` : "0"}</td>

@@ -138,6 +138,9 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
           <label>Métier recherché
             <select id="p-metier"></select>
           </label>
+          <label id="p-libre-l" hidden>Mon métier
+            <input id="p-libre" placeholder="ex. maintenance industrielle" maxlength="60">
+          </label>
         </div>
       </div>
       <div class="card">
@@ -194,6 +197,9 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
         <p class="muted" style="margin-top:4px">Autour de ton site E2C.</p>
         <label>Métier
           <select id="s-metier"></select>
+        </label>
+        <label id="s-libre-l" hidden>Mon métier (mot-clé)
+          <input id="s-libre" placeholder="ex. maintenance, pressing, fleuriste…" maxlength="60">
         </label>
         <label>Distance maximale : <output id="rayon-out">3 km</output>
           <input type="range" id="rayon" min="1" max="10" value="3">
