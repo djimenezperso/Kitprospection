@@ -424,7 +424,9 @@
       }
       $("#cv-label-txt").textContent = "Envoi en cours…";
       J = (await api("cv", { nom, type, data: await enBase64(blob) })).jeune;
-      renderCV(); majJeune(); toast(images.length ? `CV enregistré en PDF ✓ (${images.length} page${images.length > 1 ? "s" : ""}). Clique sur « Télécharger » pour vérifier.` : "CV enregistré ✓");
+      renderCV(); majJeune();
+      if (dossierComplet() && $("#p-lettre").value.trim() === (J.lettre || "").trim()) { versChercher(); return; }
+      toast(images.length ? `CV enregistré en PDF ✓ (${images.length} page${images.length > 1 ? "s" : ""}). Clique sur « Télécharger » pour vérifier.` : "CV enregistré ✓");
     } catch (e) { toast(e.message); renderCV(); }
   });
 
@@ -647,6 +649,31 @@
     } catch (e) { toast(e.message); }
     finally { lab.textContent = txt0; }
   });
+  function ouvrirScript() {
+    ouvrirDlg(`<h2>Mon script d'appel</h2>
+      <p class="muted">Le texte préparé avec ton formateur. Là où va le nom de l'entreprise, écris <b>[Entreprise]</b>.</p>
+      <div class="import-lettre"><label class="btn primary file-btn">
+        <input type="file" id="dlg-script-input" multiple accept=".docx,.pdf,.odt,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text,text/plain,image/*">
+        <span id="dlg-script-lab">Importer mon script (Word, PDF ou photo)</span></label>
+        <span class="muted sm">ou écris-le ci-dessous.</span></div>
+      <label>Texte du script <textarea id="dlg-script" rows="10"></textarea></label>
+      <button class="btn primary big" type="button" id="dlg-script-ok">Enregistrer</button>`, (root) => {
+      const ta = $("#dlg-script", root); ta.value = J.script || "";
+      $("#dlg-script-input", root).addEventListener("change", async (ev) => {
+        const files = [...ev.target.files]; ev.target.value = "";
+        if (!files.length) return;
+        const lab = $("#dlg-script-lab", root), t0 = lab.textContent; lab.textContent = "Lecture en cours…";
+        try {
+          const { t, photo } = await lireFichiersTexte(files, (p) => { lab.textContent = `Lecture de la photo… ${p} %`; });
+          ta.value = t; toast(photo ? "Texte lu sur la photo ✓ Relis-le bien : la lecture automatique peut faire des erreurs." : "Script importé ✓ Vérifie le texte.");
+        } catch (e) { toast(e.message); } finally { lab.textContent = t0; }
+      });
+      $("#dlg-script-ok", root).addEventListener("click", async () => {
+        $("#p-script").value = ta.value; etatScript();
+        await sauver(); dlg.close(); renderListe(); toast("Script enregistré ✓");
+      });
+    });
+  }
   function etatScript() {
     const tag = $("#script-etat"), ok = !!$("#p-script").value.trim();
     tag.textContent = ok ? "Prêt ✓" : "Facultatif"; tag.className = ok ? "tag ok" : "tag";
@@ -692,7 +719,12 @@ ${nomComplet()}`;
       if ($("#p-metier").value) { $("#s-metier").value = $("#p-metier").value; $("#s-libre").value = $("#p-libre").value; $("#s-metier-txt").value = $("#p-metier-txt").value; }
     } catch (e) { $("#save-etat").textContent = "Pas enregistré : " + e.message; }
   }
-  $("#btn-save").addEventListener("click", async () => { await sauver(); toast("Dossier enregistré ✓"); });
+  const dossierComplet = () => !!J.cv && !!(J.lettre || "").trim();
+  function versChercher() {
+    showSub("chercher"); window.scrollTo({ top: 0, behavior: "smooth" });
+    toast("Dossier complet ✓ Maintenant, cherche des entreprises !");
+  }
+  $("#btn-save").addEventListener("click", async () => { await sauver(); if (dossierComplet()) versChercher(); else toast(J.cv ? "Lettre enregistrée ✓" : "Lettre enregistrée ✓ Il manque ton CV."); });
   $$("input[name=genre]").forEach((r) => r.addEventListener("change", sauver));
   $("#p-typ").addEventListener("change", () => {
     const ancien = $("#p-objet").value, defOld = objetDefaut();
@@ -832,7 +864,9 @@ ${nomComplet()}`;
         <label class="step" for="tel-${e.siret}"><i>✎</i>Numéro trouvé (facultatif)</label>
         <div class="tel-row"><input id="tel-${e.siret}" class="obj" type="tel" inputmode="tel" placeholder="01 23 45 67 89"><a class="btn primary" id="call-${e.siret}" href="#" aria-disabled="true">Appeler</a></div>
         <div class="step"><i>2</i>Ton script d'appel</div>
-        ${script.trim() ? `<pre class="script">${esc(script)}</pre>` : `<p class="alert soft">Ton script d'appel n'est pas encore dans ton dossier. Prépare-le avec ton formateur, puis <a href="#" data-go-dossier>ajoute-le</a>.</p>`}
+        ${script.trim() ? `<pre class="script">${esc(script)}</pre><button class="btn ghost sm" type="button" data-script>Modifier mon script</button>`
+          : `<p class="muted">Le texte préparé avec ton formateur (ce que tu dis au téléphone, tes réponses aux questions). Tu l'auras sous les yeux pendant l'appel.</p>
+          <button class="btn primary" type="button" data-script>Ajouter mon script d'appel</button>`}
         <div class="step"><i>3</i>Comment s'est passé l'appel ?</div>
         <div class="resultats">
           <button class="btn primary" type="button" data-appel="entretien">Entretien obtenu 🎉</button>
@@ -891,6 +925,7 @@ ${nomComplet()}`;
     const majTel = () => { const n = tel.value.replace(/[^\d+]/g, ""); call.href = n.length >= 6 ? "tel:" + n : "#"; call.setAttribute("aria-disabled", String(n.length < 6)); call.classList.toggle("off", n.length < 6); };
     tel.addEventListener("input", majTel); majTel();
     call.addEventListener("click", (ev) => { if (call.getAttribute("aria-disabled") === "true") { ev.preventDefault(); toast("Écris d'abord le numéro (sur Google Maps)."); } });
+    $$("[data-script]").forEach((b) => b.addEventListener("click", ouvrirScript));
     $$("[data-appel]").forEach((b) => b.addEventListener("click", async () => {
       const r = b.dataset.appel;
       if (r === "cv") {
