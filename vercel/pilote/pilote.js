@@ -277,8 +277,8 @@
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
   window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); invitInstall = e; majBoutonInstall(); });
   window.addEventListener("appinstalled", () => { invitInstall = null; majBoutonInstall(); toast("Le Kit est sur ton écran d'accueil ✓"); });
-  function majBoutonInstall() { const b = $("#btn-installer"); if (b) b.hidden = estInstalle() || !(invitInstall || estIOS || /android/i.test(navigator.userAgent)); }
-  $("#btn-installer").addEventListener("click", async () => {
+  function majBoutonInstall() { const cache = estInstalle() || !(invitInstall || estIOS || /android/i.test(navigator.userAgent)); $$("[data-installer]").forEach((b) => { b.hidden = cache; }); }
+  $$("[data-installer]").forEach((btn) => btn.addEventListener("click", async () => {
     if (invitInstall) { invitInstall.prompt(); try { await invitInstall.userChoice; } catch (e) { /* */ } invitInstall = null; majBoutonInstall(); return; }
     ouvrirDlg(estIOS ? `<h2>Ajouter à l'écran d'accueil</h2>
       <ol class="etapes"><li>Touche le bouton <b>Partager</b> <span aria-hidden="true">⬆️</span> en bas de Safari (ou en haut à droite).</li>
@@ -287,7 +287,8 @@
       : `<h2>Ajouter à l'écran d'accueil</h2>
       <ol class="etapes"><li>Ouvre le menu <b>⋮</b> de ton navigateur (en haut à droite).</li><li>Choisis <b>« Ajouter à l'écran d'accueil »</b> ou <b>« Installer l'application »</b>.</li><li>Confirme.</li></ol>
       <p class="muted">L'icône « Kit E2C » apparaîtra sur ton téléphone, comme une application.</p>`);
-  });
+  }));
+  majBoutonInstall();
 
   // ----- partager l'outil avec un camarade -----
   $("#btn-partage").addEventListener("click", () => {
