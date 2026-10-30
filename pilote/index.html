@@ -175,9 +175,9 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
         <div class="row-btns">
           <button class="btn ghost" type="button" id="btn-insert">Insérer [Entreprise] ici</button>
           <button class="btn ghost" type="button" id="btn-modele">Partir d'un modèle</button>
-          <button class="btn primary" type="button" id="btn-save">Enregistrer</button>
+          <button class="btn primary" type="button" id="btn-go-chercher" hidden>Mon dossier est prêt → Chercher des entreprises</button>
         </div>
-        <p class="hint" id="save-etat"></p>
+        <p class="hint" id="save-etat">Tout s'enregistre automatiquement.</p>
       </div>
       <div class="card" id="script-card" hidden>
         <div class="lettre-head">
@@ -209,6 +209,7 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
         </label>
         <datalist id="dl-metiers"></datalist>
         <p class="hint" style="margin-top:-4px">Tape ton métier : choisis-le dans la liste, ou écris celui que tu veux (ex. fleuriste, pressing).</p>
+        <button class="btn ghost tous-btn" type="button" id="btn-tous">🌍 Peu importe le métier : toutes les entreprises</button>
         <label id="s-libre-l" hidden>Mon métier (mot-clé)
           <input id="s-libre" placeholder="ex. maintenance, pressing, fleuriste…" maxlength="60">
         </label>

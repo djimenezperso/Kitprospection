@@ -215,3 +215,4 @@ pre.script { white-space: pre-wrap; background: var(--blue-soft); border-radius:
 .install-sheet .is-txt span { color: var(--muted, #5b6474); font-size: .88rem; }
 .install-sheet .is-btns { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; }
 .install-sheet .is-btns .btn.primary { flex: 1; }
+.tous-btn { width: 100%; margin: 2px 0 6px; }

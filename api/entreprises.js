@@ -79,7 +79,9 @@ function joliNom(txt) {
 
 const aSalaries = (c) => !!c && c !== "NN" && c !== "00";
 
-function extraire(results, codes, lat, lon, rayon, salariesSeulement) { // codes = null : toutes activités (recherche libre)
+// « Tous les métiers » : on écarte les structures qui n'accueillent pas de stagiaires (holdings, SCI, sièges…)
+const EXCLUS_TOUS = new Set(["64.20Z", "64.30Z", "68.20A", "68.20B", "68.32A", "70.10Z", "99.00Z", "94.91Z", "94.92Z", "97.00Z", "98.10Z", "98.20Z"]);
+function extraire(results, codes, lat, lon, rayon, salariesSeulement, tous) { // codes = null : toutes activités (recherche libre)
   const vus = new Set(), out = [];
   for (const ent of results) {
     const effEnt = ent.tranche_effectif_salarie;
@@ -87,6 +89,7 @@ function extraire(results, codes, lat, lon, rayon, salariesSeulement) { // codes
       const siret = et.siret;
       if (!siret || vus.has(siret)) continue;
       if (et.etat_administratif !== "A" || (codes && !codes.has(et.activite_principale))) continue;
+      if (tous && EXCLUS_TOUS.has(et.activite_principale)) continue;
       const eff = et.tranche_effectif_salarie;
       if (salariesSeulement && !(aSalaries(eff) || aSalaries(effEnt))) continue;
       const elat = parseFloat(et.latitude), elon = parseFloat(et.longitude);
@@ -113,9 +116,9 @@ function extraire(results, codes, lat, lon, rayon, salariesSeulement) { // codes
 async function handler(req, res) {
   const q = req.query || {};
   const site = SITES[q.site];
-  const libre = q.metier === "libre";
+  const libre = q.metier === "libre", tous = q.metier === "tous";
   const motcle = String(q.q || "").trim().slice(0, 60);
-  const codesList = libre ? [] : METIERS[q.metier];
+  const codesList = libre || tous ? [] : METIERS[q.metier];
   const rayon = Math.min(Math.max(parseFloat(q.rayon) || 3, 0.5), 15);
   const sal = q.sal !== "0";
   if (!site || !codesList) {
@@ -128,16 +131,17 @@ async function handler(req, res) {
   }
   try {
     const results = [];
-    for (let page = 1; page <= 3; page++) {
+    for (let page = 1; page <= (tous ? 4 : 3); page++) {
       // recherche libre : mot-clé dans le nom des entreprises, départements autour des sites, puis filtre par distance
       const params = libre ? new URLSearchParams({
         q: motcle, code_postal: CP_AUTOUR[q.site] || "92110", etat_administratif: "A",
         per_page: 25, page, minimal: "true", include: "matching_etablissements", limite_matching_etablissements: 10,
       }) : new URLSearchParams({
-        lat: site[0], long: site[1], radius: rayon, activite_principale: codesList.join(","),
+        lat: site[0], long: site[1], radius: rayon,
         per_page: 25, page, minimal: "true", include: "matching_etablissements",
         limite_matching_etablissements: 10,
       });
+      if (!tous) params.set("activite_principale", codesList.join(","));
       const url = libre ? `${SEARCH_URL}?${params}` : `${API_URL}?${params}`;
       let r = await fetch(url, { headers: { "User-Agent": "kit-prospection-demo/1.0" } });
       if (r.status === 429) {
@@ -149,7 +153,7 @@ async function handler(req, res) {
       results.push(...(data.results || []));
       if (page >= (data.total_pages || 1)) break;
     }
-    const list = extraire(results, libre ? null : new Set(codesList), site[0], site[1], rayon, sal);
+    const list = extraire(results, libre || tous ? null : new Set(codesList), site[0], site[1], rayon, sal, tous);
     res.setHeader("Cache-Control", "s-maxage=86400, stale-while-revalidate=3600");
     res.status(200).json({ site: { lat: site[0], lon: site[1] }, entreprises: list.slice(0, 40) });
   } catch (e) {
