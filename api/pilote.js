@@ -233,23 +233,28 @@ async function noterContact(site, siret, key) {
 }
 
 // ---------- entreprises qui ont déjà reçu / accueilli un jeune E2C (tous sites) ----------
-// accueils.json : { siret: { cléJeune: "P" (pris en stage) | "E" (entretien ou réponse positive) } } — aucun nom stocké
+// accueils2.json : { siret: { cléJeune: { v: "P" (pris en stage) | "E" (entretien / réponse positive), s: site, d: date } } } — aucun nom stocké
 const ACCUEIL = { "Pris(e)": "P", "Entretien obtenu": "E", "Réponse positive": "E" };
+const ACCUEIL_FICHIER = "accueils2.json";
+const STAGE_EN_COURS_JOURS = 60; // règle E2C : pas deux stagiaires du même site dans la même entreprise en même temps
 function accueilsDe(j) {
   const out = {};
   if (j.test) return out;
   for (const e of j.envois || []) {
-    const vu = ACCUEIL[e.statut] || (e.dates && (e.dates["Pris(e)"] ? "P" : (e.dates["Entretien obtenu"] || e.dates["Réponse positive"]) ? "E" : ""));
-    if (vu) out[e.siret] = out[e.siret] === "P" ? "P" : vu;
+    const dt = e.dates || {};
+    const v = dt["Pris(e)"] || e.statut === "Pris(e)" ? "P" : (ACCUEIL[e.statut] || dt["Entretien obtenu"] || dt["Réponse positive"]) ? "E" : "";
+    if (!v) continue;
+    const d = (v === "P" ? dt["Pris(e)"] : dt["Entretien obtenu"] || dt["Réponse positive"]) || (e.maj || "").slice(0, 10) || e.envoye || "";
+    out[e.siret] = { v, s: j.site, d };
   }
   return out;
 }
 async function chargerAccueils() {
-  let a = await store.getJSON("accueils.json");
+  let a = await store.getJSON(ACCUEIL_FICHIER);
   if (a) return a;
   a = {}; // première fois : on reconstruit à partir des suivis existants
   for (const j of await jeunesDe(Object.keys(SITES))) for (const [siret, v] of Object.entries(accueilsDe(j))) (a[siret] = a[siret] || {})[j.key] = v;
-  await store.putJSON("accueils.json", a);
+  await store.putJSON(ACCUEIL_FICHIER, a);
   return a;
 }
 async function noterAccueil(j, retirer) {
@@ -257,7 +262,7 @@ async function noterAccueil(j, retirer) {
     const a = await chargerAccueils(), mine = retirer ? {} : accueilsDe(j);
     for (const siret of Object.keys(a)) { if (a[siret][j.key] && !mine[siret]) { delete a[siret][j.key]; if (!Object.keys(a[siret]).length) delete a[siret]; } }
     for (const [siret, v] of Object.entries(mine)) (a[siret] = a[siret] || {})[j.key] = v;
-    await store.putJSON("accueils.json", a);
+    await store.putJSON(ACCUEIL_FICHIER, a);
   } catch (e) { /* non bloquant */ }
 }
 
@@ -420,9 +425,13 @@ const actions = {
     }
     const acc = {};
     try {
+      const limStage = ajouterJours(todayParis(), -STAGE_EN_COURS_JOURS);
       for (const [siret, m] of Object.entries(await chargerAccueils())) {
         const v = Object.entries(m).filter(([k]) => k !== s.key).map(([, x]) => x);
-        if (v.length) acc[siret] = { p: v.filter((x) => x === "P").length, e: v.filter((x) => x === "E").length };
+        if (!v.length) continue;
+        // un jeune du même site y est en stage en ce moment : place prise
+        const occupe = v.some((x) => x.v === "P" && x.s === s.site && x.d >= limStage);
+        acc[siret] = { p: v.filter((x) => x.v === "P").length, e: v.filter((x) => x.v === "E").length, occupe };
       }
     } catch (e) { /* sans info */ }
     return { contacts: out, accueil: acc };

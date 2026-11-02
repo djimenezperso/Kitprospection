@@ -790,7 +790,7 @@ ${nomComplet()}`;
       try { const cs = await api("contacts-site", null, { get: true }); contacts = cs.contacts || {}; accueil = cs.accueil || {}; } catch (x) { /* sans info, ordre normal */ }
       const ent = data.entreprises.map((e) => ({ ...e, contact: contacts[e.siret] || null, accueil: accueil[e.siret] || null }));
       // les entreprises qui ont déjà reçu un jeune E2C passent en premier (stage, puis entretien)
-      const rangAcc = (e) => (!e.accueil ? 2 : e.accueil.p ? 0 : 1);
+      const rangAcc = (e) => (!e.accueil ? 2 : e.accueil.occupe ? 3 : e.accueil.p ? 0 : 1);
       // les entreprises déjà contactées par un camarade passent en fin de liste
       ent.sort((a, b) => rangAcc(a) - rangAcc(b) || (a.contact ? 1 : 0) - (b.contact ? 1 : 0) || (a.contact && b.contact ? a.contact.derniere.localeCompare(b.contact.derniere) : 0) || a.distance - b.distance);
       S.resultats = ent; S.ouvert = null; S.centre = data.site;
@@ -843,15 +843,16 @@ ${nomComplet()}`;
       if (x.canal === "appel" && x.statut === "Envoyé") return false; // CV promis par e-mail, pas encore envoyé
       return true; };
     const deja = new Set([...parSiret.keys()].filter(fini));
-    const premierContact = S.resultats.findIndex((x) => x.contact && !x.accueil && !deja.has(x.siret));
+    const vedette = (x) => x.accueil && !x.accueil.occupe;
+    const premierContact = S.resultats.findIndex((x) => x.contact && !vedette(x) && !deja.has(x.siret));
     $("#liste").innerHTML = S.resultats.map((e, i) => {
       const q = encodeURIComponent(`${e.nom} ${e.adresse}`);
       const open = S.ouvert === e.siret, sent = deja.has(e.siret);
-      return `${i === premierContact && i > 0 ? `<li class="sep-contact">Entreprises déjà contactées récemment par d'autres stagiaires : à tenter en dernier.</li>` : ""}<li class="ent${open ? " open" : ""}${e.contact && !sent && !e.accueil ? " contactee" : ""}${e.accueil ? " accueil-ent" : ""}" id="e-${e.siret}">
+      return `${i === premierContact && i > 0 ? `<li class="sep-contact">Entreprises déjà contactées récemment par d'autres stagiaires : à tenter en dernier.</li>` : ""}<li class="ent${open ? " open" : ""}${(e.contact || (e.accueil && e.accueil.occupe)) && !sent && !vedette(e) ? " contactee" : ""}${vedette(e) ? " accueil-ent" : ""}" id="e-${e.siret}">
         <div class="ent-top">
           <div class="ent-main"><span class="ent-n">${i + 1}</span>
             <div><h3>${esc(e.nom)}</h3><div class="addr">${esc(e.adresse)}</div>
-              <div class="chips">${e.accueil ? `<span class="chip accueil">⭐ ${e.accueil.p ? `A déjà accueilli ${e.accueil.p > 1 ? e.accueil.p + " jeunes" : "un jeune"} de l'E2C en stage` : `A déjà reçu ${e.accueil.e > 1 ? e.accueil.e + " jeunes" : "un jeune"} de l'E2C en entretien`}</span>` : ""}<span class="chip dist">${e.distance} km</span>${e.effectif ? `<span class="chip">${esc(e.effectif)}</span>` : ""}${e.contact && !sent ? `<span class="chip deja">Déjà contactée par ${e.contact.n > 1 ? e.contact.n + " stagiaires" : "un stagiaire"} de l'E2C ${quandJour(e.contact.derniere)}</span>` : ""}</div></div>
+              <div class="chips">${e.accueil && e.accueil.occupe ? `<span class="chip occupe">Un jeune de ton site y est déjà en stage : choisis plutôt une autre entreprise</span>` : ""}${e.accueil && !e.accueil.occupe ? `<span class="chip accueil">⭐ ${e.accueil.p ? `A déjà accueilli ${e.accueil.p > 1 ? e.accueil.p + " jeunes" : "un jeune"} de l'E2C en stage` : `A déjà reçu ${e.accueil.e > 1 ? e.accueil.e + " jeunes" : "un jeune"} de l'E2C en entretien`}</span>` : ""}<span class="chip dist">${e.distance} km</span>${e.effectif ? `<span class="chip">${esc(e.effectif)}</span>` : ""}${e.contact && !sent ? `<span class="chip deja">Déjà contactée par ${e.contact.n > 1 ? e.contact.n + " stagiaires" : "un stagiaire"} de l'E2C ${quandJour(e.contact.derniere)}</span>` : ""}</div></div>
           </div>
           ${!sent && (J.prepares || []).some((x) => x.siret === e.siret) ? `<span class="chip prep">Préparé · envoyé ?</span>` : ""}
           ${sent ? `<span class="btn done">${/appel/.test((parSiret.get(e.siret) || {}).canal || "") && !/email/.test(parSiret.get(e.siret).canal) ? "Appelé ✓" : "Envoyé ✓"}</span>`
