@@ -221,3 +221,4 @@ pre.script { white-space: pre-wrap; background: var(--blue-soft); border-radius:
 .prep-act { display: flex; gap: 6px; flex-wrap: wrap; }
 .chip.accueil { background: #fff1c7; color: #7a5200; font-weight: 700; }
 .ent.accueil-ent { border-color: #f1c75b; }
+.chip.occupe { background: #fde2dc; color: #a33a1f; font-weight: 600; }
