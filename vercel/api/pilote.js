@@ -232,6 +232,35 @@ async function noterContact(site, siret, key) {
   } catch (e) { /* non bloquant */ }
 }
 
+// ---------- entreprises qui ont déjà reçu / accueilli un jeune E2C (tous sites) ----------
+// accueils.json : { siret: { cléJeune: "P" (pris en stage) | "E" (entretien ou réponse positive) } } — aucun nom stocké
+const ACCUEIL = { "Pris(e)": "P", "Entretien obtenu": "E", "Réponse positive": "E" };
+function accueilsDe(j) {
+  const out = {};
+  if (j.test) return out;
+  for (const e of j.envois || []) {
+    const vu = ACCUEIL[e.statut] || (e.dates && (e.dates["Pris(e)"] ? "P" : (e.dates["Entretien obtenu"] || e.dates["Réponse positive"]) ? "E" : ""));
+    if (vu) out[e.siret] = out[e.siret] === "P" ? "P" : vu;
+  }
+  return out;
+}
+async function chargerAccueils() {
+  let a = await store.getJSON("accueils.json");
+  if (a) return a;
+  a = {}; // première fois : on reconstruit à partir des suivis existants
+  for (const j of await jeunesDe(Object.keys(SITES))) for (const [siret, v] of Object.entries(accueilsDe(j))) (a[siret] = a[siret] || {})[j.key] = v;
+  await store.putJSON("accueils.json", a);
+  return a;
+}
+async function noterAccueil(j, retirer) {
+  try {
+    const a = await chargerAccueils(), mine = retirer ? {} : accueilsDe(j);
+    for (const siret of Object.keys(a)) { if (a[siret][j.key] && !mine[siret]) { delete a[siret][j.key]; if (!Object.keys(a[siret]).length) delete a[siret]; } }
+    for (const [siret, v] of Object.entries(mine)) (a[siret] = a[siret] || {})[j.key] = v;
+    await store.putJSON("accueils.json", a);
+  } catch (e) { /* non bloquant */ }
+}
+
 // ---------- activité de l'équipe (visible par l'administrateur seulement) ----------
 async function traceEquipe(m, evt) {
   try {
@@ -389,7 +418,14 @@ const actions = {
       const autres = l.filter((x) => x.k !== s.key && x.d >= lim);
       if (autres.length) out[siret] = { n: autres.length, derniere: autres.map((x) => x.d).sort().pop() };
     }
-    return { contacts: out };
+    const acc = {};
+    try {
+      for (const [siret, m] of Object.entries(await chargerAccueils())) {
+        const v = Object.entries(m).filter(([k]) => k !== s.key).map(([, x]) => x);
+        if (v.length) acc[siret] = { p: v.filter((x) => x === "P").length, e: v.filter((x) => x === "E").length };
+      }
+    } catch (e) { /* sans info */ }
+    return { contacts: out, accueil: acc };
   },
   async prepare(req, b, s) {
     needJeune(s);
@@ -438,6 +474,7 @@ const actions = {
     e.maj = now();
     j.prepares = (j.prepares || []).filter((x) => x.siret !== siret);
     activite(j); await saveJeune(j);
+    if (!j.test && b.resultat === "entretien") await noterAccueil(j);
     return { jeune: vueJeune(j) };
   },
   async statut(req, b, s) {
@@ -458,6 +495,7 @@ const actions = {
     if (b.suppr) j.envois = j.envois.filter((x) => x.siret !== b.siret);
     e.maj = now(); activite(j);
     await saveJeune(j);
+    if (!j.test) await noterAccueil(j);
     return { jeune: vueJeune(j) };
   },
 
@@ -578,6 +616,7 @@ const actions = {
     needSite(me, b.site);
     const j = await loadJeune(b.site, b.key);
     if (j.cv && j.cv.path) await store.remove(j.cv.path);
+    await noterAccueil(j, true);
     await store.remove(jeunePath(b.site, b.key));
     return { ok: true };
   },
