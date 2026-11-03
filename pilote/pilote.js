@@ -1121,7 +1121,7 @@ ${nomComplet()}`;
     nav.hidden = ME.sites.length < 2;
     nav.innerHTML = (ME.sites.length > 1 ? `<button data-site="tous" class="on">Tous les sites</button>` : "") + ME.sites.map(([v, l]) => `<button data-site="${v}">${l}</button>`).join("");
     $$("button", nav).forEach((b) => b.addEventListener("click", () => { E.site = b.dataset.site; $$("button", nav).forEach((x) => x.classList.toggle("on", x === b)); $("#st-groupe").value = ""; chargerJeunes(); if (E.vue === "stats") chargerStats(); }));
-    montrerVue("liste");
+    montrerVue(params.get("vue") === "stats" ? "stats" : "liste");
     chargerJeunes();
   }
 
