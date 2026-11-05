@@ -1249,7 +1249,7 @@ ${nomComplet()}`;
   function courbe(ev) {
     if (ev.length < 2) return "";
     const W = 640, H = 220, g = 34, d = 14, h = 10, b = 26;
-    const series = [["connectes", "Jeunes connectés", "#1e5aa8"], ["dossiers", "Dossiers complets", "#2f9e6e"], ["candidatures", "Candidatures", "#ff6b3d"]];
+    const series = [["connectes", "Se sont connectés", "#1e5aa8"], ["dossiers", "Prêts à chercher (CV + lettre)", "#2f9e6e"]];
     const max = Math.max(4, ...ev.flatMap((x) => series.map(([k]) => x[k])));
     const pas = Math.pow(10, Math.floor(Math.log10(max))), top = Math.ceil(max / pas) * pas;
     const X = (i) => g + (i / (ev.length - 1)) * (W - g - d), Y = (v) => H - b - (v / top) * (H - b - h);
