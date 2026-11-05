@@ -31,6 +31,15 @@
 
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+  // compteur anonyme de clics (Vercel Web Analytics, événements personnalisés) : aucun nom, juste des totaux
+  const suivre = (nom, data) => { try { if (window.va) window.va("event", { name: nom, data: data || {} }); } catch (e) { /* */ } };
+  const CLICS = [["[data-ecrire]", "Contacter"], [".maps-btn", "Google Maps"], ["a[href*='maps/dir']", "Itinéraire"], ["a[href*='maps/search']:not(.maps-btn)", "Numéro sur Maps"],
+    ["[id^='call-']", "Appeler"], ["[data-mode='tel']", "Onglet téléphone"], ["[data-mail='gmail']", "Gmail"], ["[data-mail='outlook']", "Outlook"], ["[data-mail='autre']", "Autre messagerie"],
+    ["[data-copier]", "Copier la lettre"], ["[data-envoye]", "J'ai envoyé"], ["[data-autre]", "Postulé autrement"], ["#btn-partage", "Partager"], ["[data-installer]", "Écran d'accueil"],
+    ["#btn-tous", "Tous les métiers"], ["[data-cv]", "Télécharger CV"], ["#f-search button[type=submit]", "Chercher"]];
+  document.addEventListener("click", (ev) => { for (const [sel, nom] of CLICS) { if (ev.target.closest && ev.target.closest(sel)) { suivre(nom); break; } } }, true);
+  const CANAUX = { email: ["✉️", "E-mail"], appel: ["📞", "Appel"], "appel+email": ["📞✉️", "Appel puis e-mail"], "email+appel": ["✉️📞", "E-mail puis appel"], personne: ["🚶", "CV déposé en personne"], site: ["💻", "Site d'emploi"] };
+  const canalIc = (c) => (CANAUX[c] || CANAUX.email)[0], canalNom = (c) => (CANAUX[c] || CANAUX.email)[1];
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const metierLabel = (id) => (METIERS.find((m) => m[0] === id) || [, ""])[1];
   const domaine = (id) => id === "libre" && J && J.metierLibre ? J.metierLibre.toLowerCase() : (METIERS.find((m) => m[0] === id) || [, , "ce métier"])[2];
@@ -249,7 +258,22 @@
     const rel = J.envois.filter((e) => ["Envoyé", "À rappeler"].includes(e.statut) && e.relance && e.relance <= t);
     const b = $("#j-banner");
     const prep = (J.prepares || []).filter((x) => !(S.attente && S.attente.siret === x.siret));
-    if (prep.length) {
+    const appels = (J.appelsLances || []).filter((x) => x.siret !== S.ouvert);
+    if (appels.length && !prep.length) {
+      b.hidden = false;
+      b.innerHTML = `<div class="prep-box"><b>${appels.length === 1 ? "Comment s'est passé ton appel ?" : "Comment se sont passés tes appels ?"}</b>
+        ${appels.map((x) => `<div class="prep-row"><span>📞 ${esc(x.entreprise)}${x.ville ? ` <span class="muted sm">· ${esc(x.ville)}</span>` : ""}</span>
+          <span class="prep-btns"><button class="btn primary sm" type="button" data-ar="entretien" data-s="${esc(x.siret)}">Entretien 🎉</button><button class="btn dark sm" type="button" data-ar="rappeler" data-s="${esc(x.siret)}">À rappeler</button><button class="btn ghost sm" type="button" data-ar="refus" data-s="${esc(x.siret)}">Pas intéressé</button><button class="btn ghost sm" type="button" data-ar="oubli" data-s="${esc(x.siret)}">Je n'ai pas appelé</button></span></div>`).join("")}</div>`;
+      $$("[data-ar]", b).forEach((x) => x.addEventListener("click", async () => {
+        const a = J.appelsLances.find((y) => y.siret === x.dataset.s); if (!a) return;
+        try {
+          J = x.dataset.ar === "oubli" ? (await api("appel-oubli", { siret: a.siret })).jeune
+            : (await api("appel", { siret: a.siret, entreprise: a.entreprise, adresse: a.adresse, ville: a.ville, tel: a.tel, resultat: x.dataset.ar })).jeune;
+          majJeune(); if (S.resultats.length) renderListe();
+          if (x.dataset.ar !== "oubli") toast(x.dataset.ar === "entretien" ? "Bravo ! Entretien noté 🎉" : "C'est noté ✓");
+        } catch (e) { toast(e.message); }
+      }));
+    } else if (prep.length) {
       b.hidden = false;
       b.innerHTML = `<div class="prep-box"><b>Tu as préparé ${prep.length === 1 ? "un message" : prep.length + " messages"}. ${prep.length === 1 ? "L'as-tu envoyé ?" : "Les as-tu envoyés ?"}</b>
         ${prep.map((x) => `<div class="prep-row"><span>${esc(x.entreprise)}${x.ville ? ` <span class="muted sm">· ${esc(x.ville)}</span>` : ""}</span>
@@ -266,6 +290,8 @@
     } else b.hidden = true;
   }
 
+  // retour dans l'appli (après un appel, la messagerie…) : on remet à jour les rappels
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && J && !$("#v-jeune").hidden) majJeune(); });
   $$("#v-jeune .subtabs button").forEach((b) => b.addEventListener("click", () => showSub(b.dataset.sub)));
   function showSub(name) {
     S.sub = name;
@@ -886,6 +912,9 @@ ${nomComplet()}`;
         <button role="tab" type="button" data-mode="email" class="${modeTel ? "" : "on"}" aria-selected="${!modeTel}">✉️ Par e-mail</button>
         <button role="tab" type="button" data-mode="tel" class="${modeTel ? "on" : ""}" aria-selected="${modeTel}">📞 Par téléphone</button>
       </div>
+      <details class="autrement"><summary>Tu as déjà postulé autrement ?</summary>
+        <div class="row-btns"><button class="btn ghost sm" type="button" data-autre="personne">🚶 J'ai déposé mon CV sur place</button><button class="btn ghost sm" type="button" data-autre="site">💻 J'ai postulé sur un site d'emploi</button></div>
+        <p class="hint">Appelé avec ton téléphone ? Utilise l'onglet 📞 pour noter le résultat.</p></details>
       <div class="tel-zone" ${modeTel ? "" : "hidden"}>
         <div class="step"><i>1</i>Trouve le numéro</div>
         <a class="btn ghost big" href="https://www.google.com/maps/search/?api=1&query=${q}" target="_blank" rel="noopener">Voir le numéro sur Google Maps</a>
@@ -952,8 +981,18 @@ ${nomComplet()}`;
     const tel = $(`#tel-${e.siret}`), call = $(`#call-${e.siret}`);
     const majTel = () => { const n = tel.value.replace(/[^\d+]/g, ""); call.href = n.length >= 6 ? "tel:" + n : "#"; call.setAttribute("aria-disabled", String(n.length < 6)); call.classList.toggle("off", n.length < 6); };
     tel.addEventListener("input", majTel); majTel();
-    call.addEventListener("click", (ev) => { if (call.getAttribute("aria-disabled") === "true") { ev.preventDefault(); toast("Écris d'abord le numéro (sur Google Maps)."); } });
+    call.addEventListener("click", (ev) => {
+      if (call.getAttribute("aria-disabled") === "true") { ev.preventDefault(); toast("Écris d'abord le numéro (sur Google Maps)."); return; }
+      api("appel-lance", { siret: e.siret, entreprise: e.nom, adresse: e.adresse, ville: e.ville, tel: tel.value }).then((r) => { J = r.jeune; }).catch(() => {});
+    });
     $$("[data-script]").forEach((b) => b.addEventListener("click", ouvrirScript));
+    $$("[data-autre]").forEach((b) => b.addEventListener("click", async () => {
+      try {
+        J = (await api("postule-autrement", { siret: e.siret, entreprise: e.nom, adresse: e.adresse, ville: e.ville, mode: b.dataset.autre })).jeune;
+        S.ouvert = null; majJeune(); renderListe(); renderMap && renderMap();
+        toast(b.dataset.autre === "personne" ? "CV déposé : c'est noté ✓ Relance dans 7 jours." : "Candidature notée ✓ Relance dans 7 jours.");
+      } catch (x) { toast(x.message); }
+    }));
     $$("[data-appel]").forEach((b) => b.addEventListener("click", async () => {
       const r = b.dataset.appel;
       if (r === "cv") {
@@ -1039,7 +1078,7 @@ ${nomComplet()}`;
     S.ouvert = S.ouvert === siret ? null : siret;
     const x = J.envois.find((y) => y.siret === siret);
     if (S.ouvert && x) S.mode = x.statut === "À rappeler" ? "tel" : "email";
-    renderListe(); renderMap();
+    renderListe(); renderMap(); majJeune();
     const el = $("#e-" + siret);
     if (el && (depuisCarte || S.ouvert)) el.scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -1056,9 +1095,27 @@ Je vous remercie par avance pour votre réponse.
 Cordialement,
 ${nomComplet()}`;
   }
+  $("#btn-ailleurs").addEventListener("click", () => {
+    ouvrirDlg(`<h2>Candidature faite ailleurs</h2><p class="muted">Pour noter une entreprise que tu as contactée sans passer par la recherche.</p>
+      <label>Entreprise <input id="ai-nom" maxlength="160" placeholder="ex. Boulangerie Martin"></label>
+      <label>Ville (facultatif) <input id="ai-ville" maxlength="80"></label>
+      <fieldset class="row2"><legend>Comment ?</legend>
+        <label class="radio"><input type="radio" name="ai-mode" value="personne" checked> 🚶 CV déposé sur place</label>
+        <label class="radio"><input type="radio" name="ai-mode" value="site"> 💻 Site d'emploi</label></fieldset>
+      <button class="btn primary big" type="button" id="ai-ok">Ajouter à mon suivi</button>`, (root) => {
+      $("#ai-ok", root).addEventListener("click", async () => {
+        const nom = $("#ai-nom", root).value.trim();
+        if (!nom) { toast("Écris le nom de l'entreprise."); return; }
+        try {
+          J = (await api("postule-autrement", { entreprise: nom, ville: $("#ai-ville", root).value.trim(), mode: ($("input[name=ai-mode]:checked", root) || {}).value })).jeune;
+          dlg.close(); majJeune(); renderSuivi(); toast("Ajouté à ton suivi ✓"); suivre("Postulé ailleurs (suivi)");
+        } catch (e) { toast(e.message); }
+      });
+    });
+  });
   function renderSuivi() {
     const env = J.envois, t = todayIso();
-    const rel = env.filter((e) => e.statut === "Envoyé" && e.relance && e.relance <= t && e.canal !== "appel");
+    const rel = env.filter((e) => e.statut === "Envoyé" && e.relance && e.relance <= t && !["appel", "personne", "site"].includes(e.canal));
     const rappels = env.filter((e) => e.statut === "À rappeler" && e.relance && e.relance <= t);
     $("#k-env").textContent = env.length;
     $("#k-rep").textContent = env.filter((e) => REPONSES.includes(e.statut)).length;
@@ -1069,9 +1126,8 @@ ${nomComplet()}`;
     $("#rappel-quotidien .rq-liens").innerHTML = `<a class="btn ghost" href="${gcal(q)}" target="_blank" rel="noopener">Google Agenda</a><a class="btn ghost" href="${ics(q)}" download="rappel-candidatures.ics">Autre agenda</a>`;
     $("#suivi-table tbody").innerHTML = env.slice().reverse().map((e) => {
       const arel = ["Envoyé", "À rappeler"].includes(e.statut) && e.relance && e.relance <= t;
-      const ic = /appel/.test(e.canal || "") ? (/email/.test(e.canal) ? "📞✉️" : "📞") : "✉️";
       return `<tr>
-        <td><span title="${/appel/.test(e.canal || "") ? "Appel" : "E-mail"}">${ic}</span> <b>${esc(e.entreprise)}</b>${e.tel ? ` <a class="sm" href="tel:${esc(e.tel.replace(/[^\d+]/g, ""))}">${esc(e.tel)}</a>` : ""}${e.ville ? `<br><span class="muted sm">${esc(e.ville)}</span>` : ""}${arel ? ` <span class="tag warn">${e.statut === "À rappeler" ? "À rappeler" : "À relancer"}</span>` : ""}</td>
+        <td><span title="${canalNom(e.canal)}">${canalIc(e.canal)}</span> <b>${esc(e.entreprise)}</b>${e.tel ? ` <a class="sm" href="tel:${esc(e.tel.replace(/[^\d+]/g, ""))}">${esc(e.tel)}</a>` : ""}${e.ville ? `<br><span class="muted sm">${esc(e.ville)}</span>` : ""}${arel ? ` <span class="tag warn">${e.statut === "À rappeler" ? "À rappeler" : "À relancer"}</span>` : ""}</td>
         <td>${fr(e.envoye)}</td>
         <td>${e.relanceFaite ? "Faite le " + fr(e.relanceFaite) : fr(e.relance)}</td>
         <td><select data-statut="${esc(e.siret)}" aria-label="Statut pour ${esc(e.entreprise)}">${STATUTS.map((s) => `<option${s === e.statut ? " selected" : ""}>${s}</option>`).join("")}</select></td>
@@ -1169,7 +1225,7 @@ ${nomComplet()}`;
       <td class="col-site">${esc(SITES[j.site])}</td>
       <td>${esc(j.metier === "libre" ? (j.metierLibre || "Autre") : (metierLabel(j.metier) || "—"))}</td>
       <td class="nowrap"><span class="tag ${j.cv ? "ok" : "bad"}">CV</span> <span class="tag ${j.lettre ? "ok" : "bad"}">Lettre</span></td>
-      <td class="num">${j.envois}${j.prepares ? ` <span class="chip prep" title="E-mails préparés mais pas confirmés comme envoyés">+${j.prepares} ?</span>` : ""}</td><td class="num">${j.reponses}</td>
+      <td class="num">${j.envois}${j.prepares ? ` <span class="chip prep" title="E-mails préparés mais pas confirmés comme envoyés">+${j.prepares} ?</span>` : ""}${j.appelsLances ? ` <span class="chip prep" title="Appels lancés sans résultat noté">📞${j.appelsLances} ?</span>` : ""}</td><td class="num">${j.reponses}</td>
       <td class="num">${j.envois === 0 ? `<span class="tag bad">Aucun envoi</span>` : j.aRelancer ? `<span class="tag warn">${j.aRelancer}</span>` : "0"}</td>
       <td class="sm">${quand(j.derniere)}</td></tr>`).join("");
     $$("#c-table tbody tr[data-i]").forEach((tr) => {
@@ -1189,6 +1245,24 @@ ${nomComplet()}`;
   }
   $("#st-groupe").addEventListener("change", () => chargerStats());
   $("#st-export").addEventListener("click", () => $("#btn-export").click());
+  // courbe cumulée (SVG, sans bibliothèque)
+  function courbe(ev) {
+    if (ev.length < 2) return "";
+    const W = 640, H = 220, g = 34, d = 14, h = 10, b = 26;
+    const series = [["connectes", "Jeunes connectés", "#1e5aa8"], ["dossiers", "Dossiers complets", "#2f9e6e"], ["candidatures", "Candidatures", "#ff6b3d"]];
+    const max = Math.max(4, ...ev.flatMap((x) => series.map(([k]) => x[k])));
+    const pas = Math.pow(10, Math.floor(Math.log10(max))), top = Math.ceil(max / pas) * pas;
+    const X = (i) => g + (i / (ev.length - 1)) * (W - g - d), Y = (v) => H - b - (v / top) * (H - b - h);
+    const ticks = [0, top / 2, top].map((v) => `<line x1="${g}" x2="${W - d}" y1="${Y(v)}" y2="${Y(v)}" class="cb-grid"/><text x="${g - 6}" y="${Y(v) + 4}" text-anchor="end" class="cb-t">${Math.round(v)}</text>`).join("");
+    const pasX = Math.max(1, Math.ceil(ev.length / 6));
+    const xl = ev.map((x, i) => (i % pasX === 0 || i === ev.length - 1) ? `<text x="${X(i)}" y="${H - 8}" text-anchor="middle" class="cb-t">${x.d.slice(8, 10)}/${x.d.slice(5, 7)}</text>` : "").join("");
+    const lignes = series.map(([k, , c]) => `<polyline fill="none" stroke="${c}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" points="${ev.map((x, i) => `${X(i).toFixed(1)},${Y(x[k]).toFixed(1)}`).join(" ")}"/>
+      <circle cx="${X(ev.length - 1)}" cy="${Y(ev[ev.length - 1][k])}" r="4" fill="${c}"/>`).join("");
+    const der = ev[ev.length - 1];
+    return `<div class="card st-sec"><h2>Évolution</h2><p class="muted">Depuis le lancement du pilote, en cumulé.</p>
+      <div class="cb-leg">${series.map(([k, l, c]) => `<span><i style="background:${c}"></i>${l} <b>${der[k]}</b></span>`).join("")}</div>
+      <svg class="cb" viewBox="0 0 ${W} ${H}" role="img" aria-label="Évolution cumulée : ${series.map(([k, l]) => l + " " + der[k]).join(", ")}">${ticks}${xl}${lignes}</svg></div>`;
+  }
   async function chargerStats() {
     const body = $("#st-body");
     body.innerHTML = `<div class="card empty small"><p>Calcul des statistiques…</p></div>`;
@@ -1267,6 +1341,7 @@ ${nomComplet()}`;
     const n = (k) => (r) => r[k];
     const tx = (a, b) => (r) => P(r[b] ? Math.round((r[a] / r[b]) * 100) : null);
     $("#st-body").innerHTML = `
+      ${courbe(st.evolution || [])}
       <div class="card st-sec"><h2>Utilisation</h2><p class="muted">Les jeunes se sont-ils approprié l'outil ?</p>
         <div class="tiles">
           ${tile(A.connectes, "jeunes connectés au moins une fois", A.connectes, A.jeunes, "/ " + A.jeunes, "connecte")}
@@ -1280,7 +1355,8 @@ ${nomComplet()}`;
           ${tile(C.candidatures7, "candidatures ces 7 derniers jours")}
           ${tile(String(C.parJeuneActif).replace(".", ","), "candidatures par jeune actif")}
           ${tile(P(C.tauxRelance), `relances faites (${C.relancesFaites} sur ${C.relancesDues} dues)`, C.relancesFaites, C.relancesDues)}
-        </div></div>
+        </div>
+        ${(C.preparesNonConfirmes || C.appelsSansResultat || C.appelsLances) ? `<p class="st-note">À vérifier avec les jeunes : <b>${C.preparesNonConfirmes || 0}</b> e-mail${(C.preparesNonConfirmes || 0) > 1 ? "s" : ""} préparé${(C.preparesNonConfirmes || 0) > 1 ? "s" : ""} non confirmé${(C.preparesNonConfirmes || 0) > 1 ? "s" : ""} · <b>${C.appelsSansResultat || 0}</b> appel${(C.appelsSansResultat || 0) > 1 ? "s" : ""} sans résultat noté · ${C.appelsLances || 0} appel${(C.appelsLances || 0) > 1 ? "s" : ""} lancé${(C.appelsLances || 0) > 1 ? "s" : ""} depuis l'outil au total</p>` : ""}</div>
       <div class="card st-sec"><h2>Résultats</h2><p class="muted">Est-ce que ça marche ?</p>
         <div class="tiles">
           ${tile(P(R.tauxReponse), `taux de réponse (${R.reponses} réponses)`, R.reponses, C.candidatures)}
@@ -1301,7 +1377,7 @@ ${nomComplet()}`;
       ${multi ? tableau("Par site", [["Site", grp], ["Jeunes", n("jeunes"), "num"], ["Connectés", n("connectes"), "num"], ["Dossier complet", n("dossier"), "num"], ["Candidatures", n("candidatures"), "num"], ["Taux de réponse", tx("reponses", "candidatures"), "num"], ["Entretiens", n("entretiens"), "num"], ["Trouvés", n("trouves"), "num"]], st.parSite) : ""}
       ${tableau("Par groupe", [["Groupe", grp], ["Jeunes", n("jeunes"), "num"], ["Connectés", n("connectes"), "num"], ["Dossier complet", n("dossier"), "num"], ["Candidatures", n("candidatures"), "num"], ["Taux de réponse", tx("reponses", "candidatures"), "num"], ["Entretiens", n("entretiens"), "num"], ["Trouvés", n("trouves"), "num"]], st.parGroupe)}
       ${tableau("Par métier", [["Métier", (m) => `<b>${esc(m.metier)}</b>`], ["Candidatures", n("candidatures"), "num"], ["Réponses", n("reponses"), "num"], ["Taux de réponse", tx("reponses", "candidatures"), "num"], ["Réponses positives", n("positives"), "num"]], st.metiers)}
-      ${tableau("E-mail ou téléphone", [["Canal", (m) => `<b>${m.canal === "Téléphone" ? "📞 Téléphone" : "✉️ E-mail"}</b>`], ["Contacts", n("candidatures"), "num"], ["Réponses", n("reponses"), "num"], ["Taux de réponse", tx("reponses", "candidatures"), "num"], ["Entretiens", n("entretiens"), "num"]], st.canaux || [])}
+      ${tableau("E-mail ou téléphone", [["Canal", (m) => `<b>${({ "Téléphone": "📞 ", "E-mail": "✉️ ", "En personne": "🚶 ", "Site d'emploi": "💻 " }[m.canal] || "")}${esc(m.canal)}</b>`], ["Contacts", n("candidatures"), "num"], ["Réponses", n("reponses"), "num"], ["Taux de réponse", tx("reponses", "candidatures"), "num"], ["Entretiens", n("entretiens"), "num"]], st.canaux || [])}
       ${tableau("Stage, alternance ou emploi", [["Recherche", (m) => `<b>${esc(m.type)}</b>`], ["Candidatures", n("candidatures"), "num"], ["Taux de réponse", tx("reponses", "candidatures"), "num"], ["Trouvés", n("trouves"), "num"]], st.types)}
       ${ME.role === "admin" ? `<div class="card st-sec" id="st-equipe"><h2>Utilisation par l'équipe <span class="tag blue">visible par vous seul</span></h2><p class="muted">Chargement…</p></div>` : ""}
       <p class="note">Touchez une case « Utilisation » pour voir qui est concerné. Les réponses et les résultats sont indiqués par les jeunes dans leur suivi : rappelez-leur de mettre à jour le statut quand une entreprise répond. L'export Excel contient tous ces tableaux.</p>`;
@@ -1340,9 +1416,12 @@ ${nomComplet()}`;
           <p class="muted sm">E-mail préparé dans l'outil, mais ${esc(d.prenom)} n'a pas cliqué sur « J'ai envoyé ». Demandez-lui, puis confirmez.</p>
           <div class="prep-liste">${d.prepares.slice().reverse().map((x) => `<div class="prep-ligne"><div><b>${esc(x.entreprise)}</b><br><span class="muted sm">${esc(x.ville || "")} · préparé le ${fr(x.date)}</span></div>
             <div class="prep-act"><button class="btn primary sm" type="button" data-conf="${esc(x.siret)}">Confirmer l'envoi</button><button class="btn ghost sm" type="button" data-nonenv="${esc(x.siret)}">Pas envoyé</button></div></div>`).join("")}</div>` : ""}
+        ${(d.appelsLances || []).length ? `<h3 class="mt">Appels lancés, sans résultat noté <span class="chip prep">${d.appelsLances.length}</span></h3>
+          <p class="muted sm">${esc(d.prenom)} a touché « Appeler » mais n'a pas noté comment s'est passé l'appel. Demandez-lui.</p>
+          <div class="prep-liste">${d.appelsLances.slice().reverse().map((x) => `<div class="prep-ligne"><div><b>📞 ${esc(x.entreprise)}</b><br><span class="muted sm">${esc(x.ville || "")}${x.tel ? " · " + esc(x.tel) : ""} · le ${fr(x.date)}</span></div></div>`).join("")}</div>` : ""}
         <h3 class="mt">Candidatures</h3>
         ${d.envois.length ? `<div class="table-wrap"><table><thead><tr><th>Entreprise</th><th>Envoyée</th><th>Relance</th><th>Statut</th></tr></thead><tbody>
-          ${d.envois.slice().reverse().map((e) => `<tr><td>${/appel/.test(e.canal || "") ? "📞 " : "✉️ "}<b>${esc(e.entreprise)}</b><br><span class="muted sm">${esc(e.ville)}${e.confirmePar ? ` · confirmé par ${esc(e.confirmePar)}` : ""}</span></td><td>${fr(e.envoye)}</td>
+          ${d.envois.slice().reverse().map((e) => `<tr><td><span title="${canalNom(e.canal)}">${canalIc(e.canal)}</span> <b>${esc(e.entreprise)}</b><br><span class="muted sm">${esc(e.ville)}${e.confirmePar ? ` · confirmé par ${esc(e.confirmePar)}` : ""}</span></td><td>${fr(e.envoye)}</td>
           <td>${e.relanceFaite ? "faite le " + fr(e.relanceFaite) : (e.statut === "Envoyé" && e.relance <= t ? `<span class="tag warn">à faire</span>` : fr(e.relance))}</td><td>${esc(e.statut)}</td></tr>`).join("")}
         </tbody></table></div>` : `<p class="muted">Aucune candidature pour le moment.</p>`}
         <div class="dlg-foot">

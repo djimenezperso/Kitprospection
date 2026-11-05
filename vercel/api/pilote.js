@@ -135,6 +135,7 @@ function vueJeune(j) {
     cv: j.cv ? { nom: j.cv.nom, taille: j.cv.taille, date: j.cv.date } : null,
     envois: j.envois || [],
     prepares: (j.prepares || []).filter((x) => !(j.envois || []).some((e) => e.siret === x.siret)),
+    appelsLances: j.appelsLances || [],
   };
 }
 function resume(j) {
@@ -149,6 +150,7 @@ function resume(j) {
     reponses, entretiens: env.filter((e) => e.statut === "Entretien obtenu").length,
     pris: env.filter((e) => e.statut === "Pris(e)").length, aRelancer,
     prepares: (j.prepares || []).filter((x) => !env.some((e) => e.siret === x.siret)).length,
+    appelsLances: (j.appelsLances || []).length,
     derniere: j.vu || "", cree: j.cree || "",
     connecte: !!(j.premiere || j.vu),
     actif7: (j.jours || []).some((d) => d >= ajouterJours(t, -6)) || (j.vu || "").slice(0, 10) >= ajouterJours(t, -6),
@@ -449,6 +451,47 @@ const actions = {
     }
     return { jeune: vueJeune(j) };
   },
+  // le jeune a touché « Appeler » : on garde une trace pour lui demander le résultat ensuite
+  async "appel-lance"(req, b, s) {
+    needJeune(s);
+    const j = await loadJeune(s.site, s.key);
+    const siret = clean(b.siret, 20);
+    if (!siret) fail(400, "Entreprise manquante.");
+    j.appelsLances = (j.appelsLances || []).filter((x) => x.siret !== siret);
+    j.appelsLances.push({ siret, entreprise: clean(b.entreprise, 160), adresse: clean(b.adresse, 200), ville: clean(b.ville, 80), tel: clean(b.tel, 30), date: todayParis() });
+    j.appelsLances = j.appelsLances.slice(-20);
+    j.nbAppels = (j.nbAppels || 0) + 1;
+    activite(j); await saveJeune(j);
+    return { jeune: vueJeune(j) };
+  },
+  async "appel-oubli"(req, b, s) {
+    needJeune(s);
+    const j = await loadJeune(s.site, s.key);
+    j.appelsLances = (j.appelsLances || []).filter((x) => x.siret !== b.siret);
+    await saveJeune(j);
+    return { jeune: vueJeune(j) };
+  },
+  // candidature faite hors de l'outil : CV déposé en personne, ou site d'emploi
+  async "postule-autrement"(req, b, s) {
+    needJeune(s);
+    const j = await loadJeune(s.site, s.key);
+    const mode = { personne: "personne", site: "site" }[b.mode];
+    if (!mode) fail(400, "Mode inconnu.");
+    const entreprise = clean(b.entreprise, 160);
+    if (!entreprise) fail(400, "Nom de l'entreprise manquant.");
+    const siret = clean(b.siret, 20) || "m" + Date.now().toString(36);
+    j.envois = j.envois || [];
+    if (!j.envois.some((e) => e.siret === siret)) {
+      const d = todayParis();
+      j.envois.push({ siret, entreprise, adresse: clean(b.adresse, 200), ville: clean(b.ville, 80), metier: j.metier || "", typ: j.typ || "",
+        envoye: d, relance: relanceDate(d), statut: "Envoyé", relanceFaite: "", maj: now(), canal: mode, email: "" });
+      if (!j.test && /^\d{14}$/.test(siret)) await noterContact(j.site, siret, j.key);
+    }
+    j.prepares = (j.prepares || []).filter((x) => x.siret !== siret);
+    j.appelsLances = (j.appelsLances || []).filter((x) => x.siret !== siret);
+    activite(j); await saveJeune(j);
+    return { jeune: vueJeune(j) };
+  },
   async "annule-prepare"(req, b, s) {
     needJeune(s);
     const j = await loadJeune(s.site, s.key);
@@ -482,6 +525,7 @@ const actions = {
     else if (res === "Envoyé") e.relance = relanceDate(d);
     e.maj = now();
     j.prepares = (j.prepares || []).filter((x) => x.siret !== siret);
+    j.appelsLances = (j.appelsLances || []).filter((x) => x.siret !== siret);
     activite(j); await saveJeune(j);
     if (!j.test && b.resultat === "entretien") await noterAccueil(j);
     return { jeune: vueJeune(j) };
@@ -578,7 +622,7 @@ const actions = {
     const j = await loadJeune(b.site, b.key);
     if (!j.test) fail(400, "Réservé aux comptes de test.");
     if (j.cv && j.cv.path) await store.remove(j.cv.path);
-    Object.assign(j, { envois: [], prepares: [], cv: null, lettre: "", objet: "", metier: "", typ: "", genre: "", jours: [] });
+    Object.assign(j, { envois: [], prepares: [], appelsLances: [], nbAppels: 0, cv: null, lettre: "", objet: "", metier: "", typ: "", genre: "", jours: [] });
     delete j.premiere; delete j.vu;
     await saveJeune(j);
     return { ok: true };
@@ -801,6 +845,9 @@ function calculerStats(jeunes) {
     parJeuneActif: adoption.avecEnvoi ? Math.round((env.length / adoption.avecEnvoi) * 10) / 10 : 0,
     candidatures7: env.filter(({ e }) => e.envoye >= il7).length,
     relancesDues: dues.length, relancesFaites: faites.length, tauxRelance: pct(faites.length, dues.length),
+    preparesNonConfirmes: jeunes.reduce((n, j) => n + (j.prepares || []).filter((x) => !(j.envois || []).some((e) => e.siret === x.siret)).length, 0),
+    appelsSansResultat: jeunes.reduce((n, j) => n + (j.appelsLances || []).length, 0),
+    appelsLances: jeunes.reduce((n, j) => n + (j.nbAppels || 0), 0),
   };
   const resultats = {
     reponses: rep.length, tauxReponse: pct(rep.length, env.length),
@@ -839,12 +886,23 @@ function calculerStats(jeunes) {
   env.forEach(({ e, j }) => { const k = e.metier || j.metier || "?"; const r = metiers.get(k) || { metier: METIER_NOMS[k] || "Non précisé", candidatures: 0, reponses: 0, positives: 0 };
     r.candidatures++; if (REPONSES.includes(e.statut)) r.reponses++; if (POSITIVES.includes(e.statut)) r.positives++; metiers.set(k, r); });
   const canaux = new Map();
-  env.forEach(({ e }) => { const k = /appel/.test(e.canal || "") ? "Téléphone" : "E-mail"; const r = canaux.get(k) || { canal: k, candidatures: 0, reponses: 0, entretiens: 0 };
+  env.forEach(({ e }) => { const k = e.canal === "personne" ? "En personne" : e.canal === "site" ? "Site d'emploi" : /appel/.test(e.canal || "") ? "Téléphone" : "E-mail"; const r = canaux.get(k) || { canal: k, candidatures: 0, reponses: 0, entretiens: 0 };
     r.candidatures++; if (REPONSES.includes(e.statut)) r.reponses++; if (e.statut === "Entretien obtenu" || e.statut === "Pris(e)") r.entretiens++; canaux.set(k, r); });
   const types = new Map();
   env.forEach(({ e, j }) => { const k = e.typ || j.typ || "?"; const r = types.get(k) || { type: { stage: "Stage", alternance: "Alternance", emploi: "Emploi" }[k] || "Non précisé", candidatures: 0, reponses: 0, trouves: 0 };
     r.candidatures++; if (REPONSES.includes(e.statut)) r.reponses++; if (e.statut === "Pris(e)") r.trouves++; types.set(k, r); });
+  // évolution cumulée, jour par jour, depuis la première connexion
+  const evolution = [];
+  const premieres = jeunes.map((j) => (j.premiere || "").slice(0, 10)).filter(Boolean).sort();
+  if (premieres.length) {
+    const envDates = env.map(({ e }) => e.envoye).filter(Boolean).sort();
+    const dossDates = jeunes.filter((j) => j.cv && (j.lettre || "").trim()).map((j) => (j.cv.date || "").slice(0, 10) || t).sort();
+    for (let d = premieres[0], n = 0; d <= t && n < 400; d = ajouterJours(d, 1), n++) {
+      evolution.push({ d, connectes: premieres.filter((x) => x <= d).length, dossiers: dossDates.filter((x) => x <= d).length, candidatures: envDates.filter((x) => x <= d).length });
+    }
+  }
   return {
+    evolution,
     aujourdhui: t, adoption, activite: activiteS, resultats, semaines,
     parSite: groupe((j) => SITES[j.site]),
     parGroupe: groupe((j) => `${SITES[j.site]} · ${j.groupe || "sans groupe"}`),
