@@ -222,3 +222,12 @@ pre.script { white-space: pre-wrap; background: var(--blue-soft); border-radius:
 .chip.accueil { background: #fff1c7; color: #7a5200; font-weight: 700; }
 .ent.accueil-ent { border-color: #f1c75b; }
 .chip.occupe { background: #fde2dc; color: #a33a1f; font-weight: 600; }
+.autrement { margin: 8px 0 4px; font-size: .92rem; }
+.autrement summary { cursor: pointer; color: var(--muted, #5b6474); font-weight: 600; }
+.autrement .row-btns { margin-top: 8px; }
+.st-note { margin: 10px 0 0; font-size: .9rem; color: var(--muted, #5b6474); }
+.cb { width: 100%; height: auto; display: block; margin-top: 6px; }
+.cb-grid { stroke: #e6e1d8; stroke-width: 1; }
+.cb-t { font-size: 11px; fill: #7a8291; }
+.cb-leg { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; font-size: .9rem; }
+.cb-leg i { display: inline-block; width: 12px; height: 3px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
