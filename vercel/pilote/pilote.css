@@ -231,3 +231,4 @@ pre.script { white-space: pre-wrap; background: var(--blue-soft); border-radius:
 .cb-t { font-size: 11px; fill: #7a8291; }
 .cb-leg { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; font-size: .9rem; }
 .cb-leg i { display: inline-block; width: 12px; height: 3px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+.res-ia { margin: 4px 0 6px; padding: 8px 12px; border-radius: 10px; background: #eef3fb; color: #1e3a66; font-size: .9rem; }

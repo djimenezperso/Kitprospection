@@ -831,7 +831,7 @@ ${nomComplet()}`;
       const rangAcc = (e) => (!e.accueil ? 2 : e.accueil.occupe ? 3 : e.accueil.p ? 0 : 1);
       // les entreprises déjà contactées par un camarade passent en fin de liste
       ent.sort((a, b) => rangAcc(a) - rangAcc(b) || (a.contact ? 1 : 0) - (b.contact ? 1 : 0) || (a.contact && b.contact ? a.contact.derniere.localeCompare(b.contact.derniere) : 0) || a.distance - b.distance);
-      S.resultats = ent; S.ouvert = null; S.centre = data.site;
+      S.resultats = ent; S.ouvert = null; S.centre = data.site; S.ia = data.ia || null;
       renderResultats();
       if (window.innerWidth < 900) $("#res").scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (e) {
@@ -844,12 +844,16 @@ ${nomComplet()}`;
     const res = S.resultats;
     $("#res").hidden = false;
     if (!res.length) {
-      $("#res-title").textContent = "Aucune entreprise trouvée";
+      $("#res-title").textContent = "Aucune entreprise trouvée"; if ($("#res-ia")) $("#res-ia").hidden = true;
       $("#liste").innerHTML = `<li class="card empty small"><p>Augmente la distance ou décoche « salariés ».</p></li>`;
       $("#map").hidden = true; return;
     }
     $("#map").hidden = false;
     $("#res-title").textContent = `${res.length} entreprise${res.length > 1 ? "s" : ""} près du site`;
+    let note = $("#res-ia");
+    if (!note) { note = document.createElement("p"); note.id = "res-ia"; note.className = "res-ia"; $("#res-title").after(note); }
+    note.hidden = !S.ia;
+    if (S.ia) note.innerHTML = `✨ Recherche intelligente pour « ${esc(S.ia.metier)} » : ${S.ia.activites.map(esc).join(", ")}.`;
     renderMap(); renderListe();
   }
   function renderMap() {
