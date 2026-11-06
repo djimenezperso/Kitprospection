@@ -922,7 +922,7 @@ async function jeunesDe(sites) {
 
 const METIER_NOMS = { vente: "Vente / commerce", boulangerie: "Boulangerie / pâtisserie", restauration: "Cuisine / restauration",
   mecanique: "Mécanique automobile", aide: "Aide à la personne", enfance: "Petite enfance", proprete: "Propreté / entretien",
-  coiffure: "Coiffure / esthétique", logistique: "Logistique", batiment: "Bâtiment", hotellerie: "Hôtellerie / accueil",
+  coiffure: "Coiffure / esthétique", logistique: "Logistique", batiment: "Bâtiment", electricite: "Électricité", plomberie: "Plomberie / chauffage", peinture: "Peinture / revêtements", menuiserie: "Menuiserie", hotellerie: "Hôtellerie / accueil",
   maintenance: "Maintenance industrielle", securite: "Sécurité", transport: "Transport / livraison", informatique: "Informatique",
   espacesverts: "Espaces verts", administratif: "Administratif", sport: "Sport / animation", automobile: "Commerce automobile", rh: "Ressources humaines", libre: "Autre métier" };
 const frDate = (iso) => (iso ? iso.slice(8, 10) + "/" + iso.slice(5, 7) + "/" + iso.slice(0, 4) : "");
