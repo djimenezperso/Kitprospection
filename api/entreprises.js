@@ -211,7 +211,7 @@ async function handler(req, res) {
         per_page: 25, page, minimal: "true", include: "matching_etablissements",
         limite_matching_etablissements: 10,
       });
-      if (!tous) params.set("activite_principale", codesList.join(","));
+      if (codesList.length) params.set("activite_principale", codesList.join(","));
       const url = libre ? `${SEARCH_URL}?${params}` : `${API_URL}?${params}`;
       let r = await fetch(url, { headers: { "User-Agent": "kit-prospection-demo/1.0" } });
       if (r.status === 429) {
