@@ -127,12 +127,12 @@ const cleIA = (t) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerC
 async function codesIA(motcle, req) {
   const cle = cleIA(motcle);
   if (!cle) return null;
-  try { const c = await store().getJSON(`naf-ia/${cle}.json`); if (c) return c; } catch (e) { /* pas de cache */ }
+  try { const c = await store().getJSON(`naf-ia2/${cle}.json`); if (c) return c; } catch (e) { /* pas de cache */ }
   const jeton = (req.headers && req.headers["x-vercel-oidc-token"]) || process.env.VERCEL_OIDC_TOKEN || process.env.AI_GATEWAY_API_KEY;
   if (!jeton) return null;
   const consigne = `Un jeune de 16 à 25 ans cherche un stage en France dans ce métier : « ${motcle} ».
-Donne les codes NAF rév. 2 (sous-classes, format 00.00A) des activités principales des entreprises qui emploient ce métier et pourraient l'accueillir en stage.
-Entre 1 et 8 codes, du plus pertinent au moins pertinent. Si ce n'est pas un métier, renvoie une liste vide.
+Donne les codes NAF rév. 2 (sous-classes, format 00.00A) des entreprises dont ce métier est le CŒUR de l'activité : celles où ce jeune ferait vraiment ce métier.
+N'ajoute pas d'activités voisines ou vaguement liées. Entre 1 et 4 codes, du plus pertinent au moins pertinent. Si ce n'est pas un métier, renvoie une liste vide.
 Réponds uniquement en JSON : {"metier":"intitulé corrigé du métier","activites":[{"code":"43.21A","libelle":"libellé court"}]}`;
   for (const model of MODELES_IA) {
     try {
@@ -148,9 +148,9 @@ Réponds uniquement en JSON : {"metier":"intitulé corrigé du métier","activit
       const txt = (((d.choices || [])[0] || {}).message || {}).content || "";
       const js = JSON.parse((txt.match(/\{[\s\S]*\}/) || ["{}"])[0]);
       const activites = (js.activites || []).filter((a) => /^\d{2}\.\d{2}[A-Z]$/.test(String(a.code || "").trim()))
-        .slice(0, 8).map((a) => ({ code: a.code.trim(), libelle: String(a.libelle || "").slice(0, 80) }));
+        .slice(0, 4).map((a) => ({ code: a.code.trim(), libelle: String(a.libelle || "").slice(0, 80) }));
       const res = { metier: String(js.metier || motcle).slice(0, 80), activites, modele: model, date: new Date().toISOString() };
-      try { await store().putJSON(`naf-ia/${cle}.json`, res); } catch (e) { /* */ }
+      try { await store().putJSON(`naf-ia2/${cle}.json`, res); } catch (e) { /* */ }
       return res;
     } catch (e) { /* modèle suivant */ }
   }
