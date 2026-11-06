@@ -853,7 +853,7 @@ ${nomComplet()}`;
     let note = $("#res-ia");
     if (!note) { note = document.createElement("p"); note.id = "res-ia"; note.className = "res-ia"; $("#res-title").after(note); }
     note.hidden = !S.ia;
-    if (S.ia) note.innerHTML = `✨ Recherche intelligente pour « ${esc(S.ia.metier)} » : ${S.ia.activites.map(esc).join(", ")}.`;
+    if (S.ia) note.innerHTML = `✨ Recherche intelligente pour « ${esc(S.ia.metier)} » : ${S.ia.activites.slice(0, 3).map((a) => esc(a.toLowerCase())).join(" · ")}.`;
     renderMap(); renderListe();
   }
   function renderMap() {
