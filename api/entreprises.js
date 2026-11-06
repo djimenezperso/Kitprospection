@@ -231,7 +231,8 @@ async function handler(req, res) {
     res.setHeader("Cache-Control", "s-maxage=86400, stale-while-revalidate=3600");
     res.status(200).json({ site: { lat: site[0], lon: site[1] }, entreprises: list.slice(0, 40), ...(ia && ia.activites && ia.activites.length ? { ia: { metier: ia.metier, activites: ia.activites.map((a) => a.libelle) } } : {}) });
   } catch (e) {
-    res.status(502).json({ error: "Le registre des entreprises ne répond pas pour le moment." });
+    console.error("entreprises", q.metier, e && e.stack);
+    res.status(502).json({ error: "Le registre des entreprises ne répond pas pour le moment.", detail: String(e && e.message || e).slice(0, 200) });
   }
 }
 
