@@ -14,7 +14,11 @@
     ["proprete", "Propreté / entretien", "la propreté et l'entretien"],
     ["coiffure", "Coiffure / esthétique", "la coiffure et l'esthétique"],
     ["logistique", "Logistique / magasinage", "la logistique"],
-    ["batiment", "Bâtiment (électricité, plomberie, peinture)", "le bâtiment"],
+    ["electricite", "Électricité / électricien", "l'électricité"],
+    ["plomberie", "Plomberie / chauffage", "la plomberie et le chauffage"],
+    ["peinture", "Peinture / revêtements", "la peinture en bâtiment"],
+    ["menuiserie", "Menuiserie", "la menuiserie"],
+    ["batiment", "Bâtiment (tous corps de métier)", "le bâtiment"],
     ["hotellerie", "Hôtellerie / accueil", "l'hôtellerie et l'accueil"],
     ["maintenance", "Maintenance industrielle", "la maintenance industrielle"],
     ["securite", "Sécurité / prévention", "la sécurité"],
@@ -225,12 +229,20 @@
   const libelleMetier = (code, libre) => (code === "libre" ? libre || "" : metierLabel(code) || "");
   function lireMetier(prefix) {
     const v = $(`#${prefix}-metier-txt`).value.trim(), sel = $(`#${prefix}-metier`), lib = $(`#${prefix}-libre`);
-    const m = METIERS.find((x) => normTxtJ(x[1]) === normTxtJ(v)) || METIERS.find((x) => normTxtJ(x[1].split(" / ")[0]) === normTxtJ(v));
+    const m = METIERS.find((x) => normTxtJ(x[1]) === normTxtJ(v)) || METIERS.find((x) => normTxtJ(x[1].split(" / ")[0]) === normTxtJ(v)) || metierParMotCle(v);
     if (!v) { sel.value = ""; lib.value = ""; }
     else if (normTxtJ(v) === normTxtJ(LIB_TOUS)) { if (prefix === "s") sel.value = "tous"; else { sel.value = ""; lib.value = ""; } }
-    else if (m) { sel.value = m[0]; }
+    else if (m) { sel.value = m[0]; $(`#${prefix}-metier-txt`).value = m[1]; }
     else { sel.value = "libre"; lib.value = v; }
   }
+  // mots tapés par les jeunes → métier de la liste (ex. « électricien » → Électricité)
+  const MOTS_CLES = [[/electri/, "electricite"], [/plomb|chauffag|sanitaire|climatis/, "plomberie"], [/peint|platr|carrel|revetement/, "peinture"], [/menuis|ebenist/, "menuiserie"],
+    [/macon|batiment|btp|chantier/, "batiment"], [/boulang|patiss/, "boulangerie"], [/cuisin|restaur|serveu|commis|plonge/, "restauration"], [/mecani|garag/, "mecanique"],
+    [/aide.?soign|auxiliaire de vie|aide a la personne|ehpad/, "aide"], [/enfan|creche|atsem/, "enfance"], [/menage|nettoy|propret|agent d.entretien/, "proprete"],
+    [/coiff|esthet|onglerie|barb/, "coiffure"], [/logist|magasin|cariste|preparat|entrepot/, "logistique"], [/hotel|recept/, "hotellerie"], [/maintenance/, "maintenance"],
+    [/securit|surveill|vigile/, "securite"], [/livr|chauffeur|transport/, "transport"], [/informat|reseau|developp/, "informatique"], [/jardin|paysag|espaces verts/, "espacesverts"],
+    [/secretar|administ|compta|accueil/, "administratif"], [/sport|animat/, "sport"], [/recrut|ressources humaines|\brh\b/, "rh"], [/vend|vente|commerc|caiss|employe libre service/, "vente"]];
+  function metierParMotCle(v) { const t = normTxtJ(v); const k = (MOTS_CLES.find(([re]) => re.test(t)) || [])[1]; return k ? METIERS.find((x) => x[0] === k) : null; }
   const normTxtJ = (x) => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
   ["s", "p"].forEach((pf) => $(`#${pf}-metier-txt`).addEventListener("change", () => { lireMetier(pf); if (pf === "p") sauver(); }));
   $("#btn-tous").addEventListener("click", () => { $("#s-metier-txt").value = LIB_TOUS; $("#f-search").requestSubmit(); });
