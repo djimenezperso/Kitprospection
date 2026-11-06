@@ -117,6 +117,46 @@ function extraire(results, codes, lat, lon, rayon, salariesSeulement, tous) { //
   return out.sort((a, b) => a.distance - b.distance);
 }
 
+// ---------- recherche intelligente : métier écrit librement → codes d'activité (NAF) par une IA ----------
+// Seul le mot tapé (ex. « toiletteur pour chiens ») est envoyé à l'IA, jamais de donnée personnelle.
+// Chaque réponse est gardée (naf-ia/…) : un même métier n'est demandé qu'une fois.
+let _store = null;
+const store = () => (_store = _store || require("../lib/store"));
+const MODELES_IA = ["anthropic/claude-haiku-4.5", "openai/gpt-4o-mini", "google/gemini-2.5-flash"];
+const cleIA = (t) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
+async function codesIA(motcle, req) {
+  const cle = cleIA(motcle);
+  if (!cle) return null;
+  try { const c = await store().getJSON(`naf-ia/${cle}.json`); if (c) return c; } catch (e) { /* pas de cache */ }
+  const jeton = (req.headers && req.headers["x-vercel-oidc-token"]) || process.env.VERCEL_OIDC_TOKEN || process.env.AI_GATEWAY_API_KEY;
+  if (!jeton) return null;
+  const consigne = `Un jeune de 16 à 25 ans cherche un stage en France dans ce métier : « ${motcle} ».
+Donne les codes NAF rév. 2 (sous-classes, format 00.00A) des activités principales des entreprises qui emploient ce métier et pourraient l'accueillir en stage.
+Entre 1 et 8 codes, du plus pertinent au moins pertinent. Si ce n'est pas un métier, renvoie une liste vide.
+Réponds uniquement en JSON : {"metier":"intitulé corrigé du métier","activites":[{"code":"43.21A","libelle":"libellé court"}]}`;
+  for (const model of MODELES_IA) {
+    try {
+      const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 9000);
+      const r = await fetch("https://ai-gateway.vercel.sh/v1/chat/completions", {
+        method: "POST", signal: ctl.signal,
+        headers: { Authorization: `Bearer ${jeton}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model, temperature: 0, max_tokens: 500, messages: [{ role: "user", content: consigne }] }),
+      });
+      clearTimeout(t);
+      if (!r.ok) continue;
+      const d = await r.json();
+      const txt = (((d.choices || [])[0] || {}).message || {}).content || "";
+      const js = JSON.parse((txt.match(/\{[\s\S]*\}/) || ["{}"])[0]);
+      const activites = (js.activites || []).filter((a) => /^\d{2}\.\d{2}[A-Z]$/.test(String(a.code || "").trim()))
+        .slice(0, 8).map((a) => ({ code: a.code.trim(), libelle: String(a.libelle || "").slice(0, 80) }));
+      const res = { metier: String(js.metier || motcle).slice(0, 80), activites, modele: model, date: new Date().toISOString() };
+      try { await store().putJSON(`naf-ia/${cle}.json`, res); } catch (e) { /* */ }
+      return res;
+    } catch (e) { /* modèle suivant */ }
+  }
+  return null;
+}
+
 async function handler(req, res) {
   const q = req.query || {};
   const site = SITES[q.site];
@@ -134,6 +174,32 @@ async function handler(req, res) {
     return;
   }
   try {
+    // métier libre : l'IA propose les codes d'activité, puis recherche autour du site comme pour un métier de la liste
+    let ia = null;
+    if (libre) {
+      ia = await codesIA(motcle, req);
+      if (ia && ia.activites.length) {
+        const codes = ia.activites.map((a) => a.code), resIA = [];
+        for (let page = 1; page <= 3; page++) {
+          const params = new URLSearchParams({ lat: site[0], long: site[1], radius: rayon, activite_principale: codes.join(","),
+            per_page: 25, page, minimal: "true", include: "matching_etablissements", limite_matching_etablissements: 10 });
+          let r = await fetch(`${API_URL}?${params}`, { headers: { "User-Agent": "kit-prospection-demo/1.0" } });
+          if (r.status === 429) { await new Promise((ok) => setTimeout(ok, 1200)); r = await fetch(`${API_URL}?${params}`, { headers: { "User-Agent": "kit-prospection-demo/1.0" } }); }
+          if (!r.ok) break;
+          const data = await r.json();
+          resIA.push(...(data.results || []));
+          if (page >= (data.total_pages || 1)) break;
+        }
+        const listIA = extraire(resIA, new Set(codes), site[0], site[1], rayon, sal);
+        if (listIA.length >= 5) {
+          res.setHeader("Cache-Control", "s-maxage=86400, stale-while-revalidate=3600");
+          res.status(200).json({ site: { lat: site[0], lon: site[1] }, entreprises: listIA.slice(0, 40), ia: { metier: ia.metier, activites: ia.activites.map((a) => a.libelle) } });
+          return;
+        }
+        // trop peu de résultats : on complète avec la recherche par mot-clé ci-dessous
+        ia.liste = listIA;
+      }
+    }
     const results = [];
     for (let page = 1; page <= (tous ? 4 : 3); page++) {
       // recherche libre : mot-clé dans le nom des entreprises, départements autour des sites, puis filtre par distance
@@ -157,9 +223,13 @@ async function handler(req, res) {
       results.push(...(data.results || []));
       if (page >= (data.total_pages || 1)) break;
     }
-    const list = extraire(results, libre || tous ? null : new Set(codesList), site[0], site[1], rayon, sal, tous);
+    let list = extraire(results, libre || tous ? null : new Set(codesList), site[0], site[1], rayon, sal, tous);
+    if (ia && ia.liste && ia.liste.length) {
+      const vus = new Set(ia.liste.map((e) => e.siret));
+      list = [...ia.liste, ...list.filter((e) => !vus.has(e.siret))].sort((a, b) => a.distance - b.distance);
+    }
     res.setHeader("Cache-Control", "s-maxage=86400, stale-while-revalidate=3600");
-    res.status(200).json({ site: { lat: site[0], lon: site[1] }, entreprises: list.slice(0, 40) });
+    res.status(200).json({ site: { lat: site[0], lon: site[1] }, entreprises: list.slice(0, 40), ...(ia && ia.activites && ia.activites.length ? { ia: { metier: ia.metier, activites: ia.activites.map((a) => a.libelle) } } : {}) });
   } catch (e) {
     res.status(502).json({ error: "Le registre des entreprises ne répond pas pour le moment." });
   }
