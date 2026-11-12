@@ -1,0 +1,66 @@
+/* Thème « B · Sobre institutionnel » : chargé uniquement par les pages /v2/, après /style.css. */
+:root {
+  --ink: #111827;
+  --ink-2: #374151;
+  --muted: #5b6474;
+  --bg: #f6f7f9;
+  --card: #ffffff;
+  --line: #e5e7eb;
+  --soft: #f1f3f6;
+  --navy: #13294b;
+  --navy-2: #1d3d7a;
+  --accent: #e8541c;
+  --accent-ink: #b53d14;
+  --accent-soft: #fdeee7;
+  --blue: #1d3d7a;
+  --blue-soft: #e8eef8;
+  --r: 12px;
+  --shadow: none;
+}
+body { font-family: Inter, system-ui, sans-serif; background: var(--bg); }
+h1, h2, h3, .brand, .kpi b, .r b, .money b, .camp b, .stat { font-family: Inter, system-ui, sans-serif !important; letter-spacing: -.02em; }
+.hero h1 { font-weight: 700; }
+a { color: var(--blue); }
+
+/* ---------- barre du haut : marque + les 4 espaces, bien distincts ---------- */
+.top { background: var(--navy); border-bottom: 0; backdrop-filter: none; }
+.top-in { padding: 10px 16px 0; row-gap: 6px; }
+.brand { color: #ffffff; }
+.brand svg { color: #ffffff; }
+.brand svg rect { fill: #0b1c36; }
+.createur { color: #c9d3e6 !important; border-color: rgba(255,255,255,.25) !important; background: transparent !important; }
+.top .parcours { flex-basis: 100%; order: 4; margin: 0; padding: 0; gap: 2px; }
+.top .parcours a {
+  background: transparent; border: 0; border-radius: 0; color: #c9d3e6;
+  padding: 10px 14px 12px; min-height: 44px; font-weight: 600; font-size: .92rem;
+  border-bottom: 3px solid transparent;
+}
+.top .parcours a i { background: rgba(255,255,255,.12); color: #ffffff; }
+.top .parcours a:hover { color: #ffffff; }
+.top .parcours a[aria-current="page"] { background: transparent; color: #ffffff; border-bottom-color: var(--accent); }
+.top .parcours a[aria-current="page"] i { background: var(--accent); }
+
+/* ---------- contenu au style B ---------- */
+.ribbon { background: #ffffff; border: 1px solid var(--line); border-left: 0; color: var(--ink-2); }
+.card, .ent, .co { border-radius: var(--r); box-shadow: none; border-color: var(--line); }
+.btn { border-radius: 8px; font-weight: 600; }
+.btn.dark { background: var(--navy); }
+.btn.dark:hover { background: var(--navy-2); }
+.btn.primary { background: var(--accent); }
+.btn.ghost { border-color: #d1d5db; }
+.kpi { background: #ffffff; border: 1px solid var(--line); border-radius: var(--r); }
+.kpi b { font-weight: 700; }
+.kpi.accent { background: var(--accent-soft); border-color: #f6d5c7; }
+.subtabs button.on { border-color: var(--navy); }
+.chip.dist { background: var(--blue-soft); color: var(--navy-2); }
+.ent-n { background: var(--navy); }
+.way h2 .n, .steps li::before { background: var(--navy); color: #ffffff; }
+.way.key { border: 2px solid var(--navy); }
+.way.key h2 .n { background: var(--accent); }
+.camp { background: var(--blue-soft); }
+.camp b { color: var(--navy); }
+.co.hot { border-left-color: var(--accent); }
+.filters button.on { background: var(--navy); border-color: var(--navy); }
+.r.key { background: var(--accent-soft); }
+.foot { color: var(--muted); }
+input:not([type]), input[type="text"], input[type="number"], select, textarea { background: #ffffff; border-color: #d1d5db; border-radius: 8px; }

@@ -94,6 +94,8 @@ P.-S. Pour découvrir l'École de la deuxième chance et comment elle travaille 
   }
 
   // page « Entreprises » : pour l'instant seulement pour les sites de l'E2C 93
+  // version /v2/ (proposition de design) : ses liens restent dans /v2/
+  const V2 = location.pathname.startsWith("/v2") ? "/v2" : "";
   const SITES_93 = ["sevran", "la-courneuve", "rosny", "pantin"];
   function lienEntreprise(p, e) {
     if (!SITES_93.includes(p.site)) return "";
@@ -101,7 +103,7 @@ P.-S. Pour découvrir l'École de la deuxième chance et comment elle travaille 
     const q = new URLSearchParams({ site: p.site });
     if (prenom && prenom !== "Prénom") q.set("j", prenom);
     if (e && (e.nom || e.entreprise)) q.set("ent", e.nom || e.entreprise);
-    return `${APP_URL}/entreprises/?${q}`;
+    return `${APP_URL}${V2}/entreprises/?${q}`;
   }
 
   function messageRelance(p, e) {
@@ -477,7 +479,7 @@ E2C 93`;
       return `<tr class="${r[3] ? "live" : ""}"><td><b>${esc(r[0])}</b></td><td>${esc(r[1])}</td><td>${lien}</td>
         <td>${cls ? `<span class="tag ${cls}">${prio}</span>` : prio}</td></tr>`;
     }).join("");
-    const url = `${APP_URL}/entreprises/?site=${encodeURIComponent(p.site)}`;
+    const url = `${APP_URL}${V2}/entreprises/?site=${encodeURIComponent(p.site)}`;
     $("#v-page").href = `/entreprises/?site=${encodeURIComponent(p.site)}`;
     $("#v-copier").onclick = () => {
       const txt = messageEntreprises(url);
