@@ -41,6 +41,19 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
   .contact { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; }
   .contact p { margin: 4px 0 0; color: var(--ink-2); }
   .stat { font-family: "Bricolage Grotesque", sans-serif; font-weight: 700; color: var(--accent-ink); }
+  .calc { display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr); margin-top: 14px; }
+  @media (min-width: 640px) { .calc { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .calc label { display: grid; gap: 6px; font-size: .9rem; color: var(--ink-2); font-weight: 500; }
+  .calc input { min-height: 44px; border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; font: inherit; color: var(--ink); background: var(--card); width: 100%; box-sizing: border-box; }
+  .res { display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr); margin-top: 14px; }
+  @media (min-width: 760px) { .res { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  .r { background: var(--soft); border-radius: 14px; padding: 12px 14px; display: grid; gap: 4px; }
+  .r span { font-size: .85rem; color: var(--ink-2); }
+  .r b { font-family: "Bricolage Grotesque", sans-serif; font-size: 1.6rem; line-height: 1.1; }
+  .r em { font-style: normal; font-size: .82rem; color: var(--muted); }
+  .r.key { background: var(--accent-soft); }
+  .r.key b { color: var(--accent-ink); }
+  .fine { font-size: .8rem !important; color: var(--muted) !important; }
 </style>
 </head>
 <body>
@@ -104,6 +117,23 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
         <a class="btn primary" href="https://www.soltea.education.gouv.fr/" target="_blank" rel="noopener">Ouvrir SOLTéA</a>
         <a class="btn ghost" id="m-taxe" href="#">Me le rappeler au moment de la campagne</a>
       </div>
+    </section>
+
+    <section class="card way wide" id="calcul">
+      <h2><span class="n">€</span>Ce que ça vous coûte vraiment</h2>
+      <p>Une estimation en 10 secondes, pour votre entreprise.</p>
+      <div class="calc">
+        <label>Nombre de salariés<input type="number" id="c-sal" min="0" step="1" value="50" inputmode="numeric"></label>
+        <label>Salaire brut annuel moyen (€)<input type="number" id="c-brut" min="0" step="1000" value="38000" inputmode="numeric"></label>
+        <label>Don envisagé (€)<input type="number" id="c-don" min="0" step="100" value="2000" inputmode="numeric"></label>
+        <label>Chiffre d'affaires HT (€, facultatif)<input type="number" id="c-ca" min="0" step="10000" placeholder="ex. 5 000 000" inputmode="numeric"></label>
+      </div>
+      <div class="res">
+        <div class="r"><span>Taxe d'apprentissage que vous pouvez flécher vers l'école</span><b id="r-ta">—</b><em>Coût en plus pour vous : 0 €, vous la versez déjà.</em></div>
+        <div class="r"><span>Réduction d'impôt sur votre don</span><b id="r-red">—</b><em id="r-red-note">60 % du don.</em></div>
+        <div class="r key"><span>Coût réel de votre don</span><b id="r-cout">—</b><em id="r-cout-note">—</em></div>
+      </div>
+      <p class="fine">Estimation indicative. Taxe : solde de 0,09 % de la masse salariale. Don : réduction de 60 % (article 238 bis du CGI), dans la limite de 20 000 € ou de 0,5 % du chiffre d'affaires HT si ce montant est plus élevé ; l'excédent est reportable sur cinq exercices. Au-delà de 2 M€ de dons, le taux passe à 40 %. À confirmer avec votre expert-comptable.</p>
     </section>
 
     <section class="card way wide">
@@ -172,6 +202,24 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
       else toast(v);
     });
   });
+
+  // ---------- calculatrice ----------
+  var eur = function (n) { return Math.round(n).toLocaleString("fr-FR") + " €"; };
+  var num = function (id) { var v = parseFloat(String(document.getElementById(id).value).replace(/\s/g, "").replace(",", ".")); return isFinite(v) && v > 0 ? v : 0; };
+  function calcule() {
+    var sal = num("c-sal"), brut = num("c-brut"), don = num("c-don"), ca = num("c-ca");
+    var ta = sal * brut * 0.0009;
+    document.getElementById("r-ta").textContent = sal && brut ? "jusqu'à " + eur(Math.round(ta / 10) * 10) : "—";
+    var plafond = Math.max(20000, ca * 0.005);
+    var base = Math.min(don, plafond);
+    var red = Math.min(base, 2000000) * 0.6 + Math.max(0, base - 2000000) * 0.4;
+    document.getElementById("r-red").textContent = don ? eur(red) : "—";
+    document.getElementById("r-red-note").textContent = don > plafond ? "Plafond de " + eur(plafond) + " atteint cette année ; " + eur((don - plafond) * 0.6) + " de réduction reportable." : "60 % du don.";
+    document.getElementById("r-cout").textContent = don ? eur(don - red) : "—";
+    document.getElementById("r-cout-note").textContent = don ? "Pour " + eur(don) + " reçus par l'école." : "—";
+  }
+  ["c-sal", "c-brut", "c-don", "c-ca"].forEach(function (id) { document.getElementById(id).addEventListener("input", calcule); });
+  calcule();
   if (window.va) try { window.va("event", { name: "entreprises_vue", data: { site: q.get("site") || "", ent: ent ? "oui" : "non" } }); } catch (e) {}
 })();
 </script>
