@@ -147,6 +147,26 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
       </table></div>
       <p class="muted">La première ligne reprend ce que tu as fait dans l'espace jeune. Les autres jeunes sont des exemples fictifs.</p>
     </div>
+
+    <div class="card" id="vivier">
+      <h2>Entreprises à solliciter · taxe d'apprentissage et mécénat</h2>
+      <p class="muted" id="v-intro">Chaque entreprise contactée par un jeune connaît déjà l'école. Les plus proches (stage, entretien) sont les plus faciles à convaincre de flécher leur solde sur SOLTéA.</p>
+      <div class="kpis" style="margin-top:14px">
+        <div class="kpi"><b id="v-tot">0</b><span>entreprises contactées</span></div>
+        <div class="kpi"><b id="v-rep">0</b><span>ont répondu</span></div>
+        <div class="kpi"><b id="v-ent">0</b><span>entretien ou stage</span></div>
+        <div class="kpi accent"><b id="v-chaud">0</b><span>à solliciter en priorité</span></div>
+      </div>
+      <div class="table-wrap"><table id="v-table">
+        <thead><tr><th>Entreprise</th><th>Ville</th><th>Lien avec l'école</th><th>Priorité</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <div class="row-btns" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:14px">
+        <button class="btn dark" type="button" id="v-copier">Copier le message pour les entreprises</button>
+        <a class="btn ghost" id="v-page" href="/entreprises/" target="_blank" rel="noopener">Voir la page entreprises</a>
+      </div>
+      <p class="muted">Les entreprises « exemple » sont fictives. Dans le Kit réel, cette liste s'exporte en fin de trimestre pour préparer la campagne SOLTéA.</p>
+    </div>
   </section>
 </main>
 

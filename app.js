@@ -88,7 +88,20 @@ Je suis ${f ? "motivée" : "motivé"}, ${f ? "ponctuelle" : "ponctuel"} et ${f ?
 Je vous remercie de votre attention.
 
 Cordialement,
-${p.nom}`;
+${p.nom}${lienEntreprise(p, e) ? `
+
+P.-S. Pour découvrir l'École de la deuxième chance et comment elle travaille avec les entreprises : ${lienEntreprise(p, e)}` : ""}`;
+  }
+
+  // page « Entreprises » : pour l'instant seulement pour les sites de l'E2C 93
+  const SITES_93 = ["sevran", "la-courneuve", "rosny", "pantin"];
+  function lienEntreprise(p, e) {
+    if (!SITES_93.includes(p.site)) return "";
+    const prenom = (p.nom || "").split(/\s+/)[0];
+    const q = new URLSearchParams({ site: p.site });
+    if (prenom && prenom !== "Prénom") q.set("j", prenom);
+    if (e && (e.nom || e.entreprise)) q.set("ent", e.nom || e.entreprise);
+    return `${APP_URL}/entreprises/?${q}`;
   }
 
   function messageRelance(p, e) {
@@ -404,6 +417,68 @@ ${p.nom}`;
     $("#c-table tbody").innerHTML = rows.map((r, i) => `<tr class="${i === 0 ? "live" : r[2] === 0 ? "flag" : ""}">
       <td><b>${esc(r[0])}</b></td><td>${esc(r[1])}</td><td class="num">${r[2]}</td><td class="num">${r[3]}</td>
       <td class="num">${r[2] === 0 ? `<span class="tag bad">Aucun envoi</span>` : r[4]}</td></tr>`).join("");
+    renderVivier(p, env);
+  }
+
+  // ---------- vivier entreprises (taxe d'apprentissage, mécénat) ----------
+  const VIVIER_EX = [
+    ["Boulangerie du Marché (exemple)", "Rosny-sous-Bois", "Stage"],
+    ["Garage des Lilas (exemple)", "Pantin", "Entretien obtenu"],
+    ["Hôtel Canal (exemple)", "Pantin", "Réponse positive"],
+    ["Pressing Central (exemple)", "La Courneuve", "Envoyé"],
+    ["Électricité Nord-Est (exemple)", "Sevran", "Envoyé"],
+    ["Supérette Gambetta (exemple)", "Sevran", "Refus"],
+  ];
+  const LIEN = {
+    "Stage": ["A accueilli un stagiaire", "Haute", "warn"],
+    "Entretien obtenu": ["A reçu un jeune en entretien", "Haute", "warn"],
+    "Réponse positive": ["A répondu", "Moyenne", "blue"],
+    "Envoyé": ["Contactée", "À suivre", ""],
+    "Refus": ["A répondu (pas de place)", "Basse", ""],
+  };
+  const ORDRE = ["Stage", "Entretien obtenu", "Réponse positive", "Envoyé", "Refus"];
+
+  function messageEntreprises(url) {
+    return `Objet : Votre taxe d'apprentissage pour l'E2C 93
+
+Bonjour,
+
+Ces dernières semaines, un ou une stagiaire de l'École de la deuxième chance de Seine-Saint-Denis vous a contacté pour un stage. Merci de l'attention que vous lui avez portée.
+
+L'école vit en partie grâce au solde de la taxe d'apprentissage que les entreprises choisissent de lui verser sur SOLTéA. Cela ne vous coûte rien de plus : c'est une somme que vous versez déjà, et c'est vous qui choisissez à qui elle va.
+
+Tout est expliqué en deux minutes ici : ${url}
+
+Bien cordialement,
+
+Thomas Guichard
+E2C 93`;
+  }
+
+  function renderVivier(p, env) {
+    const box = $("#vivier");
+    const est93 = SITES_93.includes(p.site);
+    box.hidden = !est93;
+    if (!est93) return;
+    const live = env.map((e) => [e.entreprise, e.ville || "", e.statut, true]);
+    const rows = [...live, ...VIVIER_EX].sort((a, b) => ORDRE.indexOf(a[2]) - ORDRE.indexOf(b[2]));
+    $("#v-tot").textContent = rows.length;
+    $("#v-rep").textContent = rows.filter((r) => r[2] !== "Envoyé").length;
+    $("#v-ent").textContent = rows.filter((r) => r[2] === "Stage" || r[2] === "Entretien obtenu").length;
+    $("#v-chaud").textContent = rows.filter((r) => LIEN[r[2]][1] === "Haute").length;
+    $("#v-table tbody").innerHTML = rows.map((r) => {
+      const [lien, prio, cls] = LIEN[r[2]];
+      return `<tr class="${r[3] ? "live" : ""}"><td><b>${esc(r[0])}</b></td><td>${esc(r[1])}</td><td>${lien}</td>
+        <td>${cls ? `<span class="tag ${cls}">${prio}</span>` : prio}</td></tr>`;
+    }).join("");
+    const url = `${APP_URL}/entreprises/?site=${encodeURIComponent(p.site)}`;
+    $("#v-page").href = `/entreprises/?site=${encodeURIComponent(p.site)}`;
+    $("#v-copier").onclick = () => {
+      const txt = messageEntreprises(url);
+      (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(
+        () => toast("Message copié : collez-le dans un e-mail aux entreprises de la liste."),
+        () => toast("Copie impossible ici : sélectionnez le texte à la main."));
+    };
   }
 
   majBadge();
