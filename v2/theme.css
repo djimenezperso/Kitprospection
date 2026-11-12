@@ -90,3 +90,23 @@ a { color: var(--blue); }
 .foot { color: var(--muted); }
 input:not([type]), input[type="text"], input[type="number"], select, textarea { background: #ffffff; border-color: #d1d5db; border-radius: 8px; }
 @media (max-width: 699px) { .brand span { display: none; } .top-in { gap: 8px; } .top .parcours a { padding: 0 10px; } }
+
+/* ---------- barre de recherche + Filtres posée sur la carte (maquette C) ---------- */
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.v2-search { position: relative; z-index: 1000; display: flex; gap: 8px; padding: 12px; margin: 0; }
+.results:has(#res:not([hidden])) .v2-search { margin-bottom: -72px; }
+.v2-q { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; background: #ffffff; border-radius: 14px; min-height: 48px; padding: 0 12px; box-shadow: 0 4px 14px rgba(17, 24, 39, .12); color: #5b6670; }
+.v2-q select { flex: 1 1 auto; min-width: 0; border: 0 !important; background: transparent !important; min-height: 46px; padding: 0; font-size: .98rem; font-weight: 500; color: var(--ink); appearance: auto; }
+.v2-filtres { flex: none; display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 14px; border: 0; border-radius: 14px; background: var(--ink); color: #ffffff; font: inherit; font-weight: 600; cursor: pointer; box-shadow: 0 4px 14px rgba(17, 24, 39, .12); }
+.filtres-on .v2-filtres { background: var(--accent); }
+@media (max-width: 480px) { .v2-filtres span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); } .v2-filtres { width: 48px; justify-content: center; padding: 0; } }
+.v2-resume { order: 2; margin: 0; font-size: .82rem; color: #4b5563; }
+.results { display: flex; flex-direction: column; }
+.results .v2-search { order: 0; } .results #empty, .results #loading, .results #error, .results #res { order: 1; }
+.results .v2-resume { order: 2; padding: 8px 2px 0; }
+/* le profil devient le panneau « Filtres », caché jusqu'au clic */
+#sub-chercher #profil { display: none !important; }
+.filtres-on #sub-chercher #profil { display: flex !important; order: 0; }
+@media (min-width: 760px) { .filtres-on #sub-chercher #profil { display: grid !important; } }
+#sub-chercher #profil h2::after { content: " · filtres"; }
+#profil { scroll-margin-top: 76px; }
