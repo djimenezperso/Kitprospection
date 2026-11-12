@@ -146,7 +146,7 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
   function hash(s) { var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return Math.abs(h); }
   function rows() {
     var a = EXEMPLES.map(function (e) { return Object.assign({ origine: "jeunes" }, e); });
-    var b = grandes.map(function (g) { return { id: g.siret, nom: g.nom, groupe: g.groupe && g.groupe !== g.nom ? g.groupe : "", ville: g.ville, effectif: g.effectif, solde: g.solde, origine: "grandes", distance: g.distance }; });
+    var b = grandes.map(function (g) { return { id: g.siret, nom: g.nom, groupe: g.groupe && g.groupe !== g.nom ? g.groupe : "", ville: g.ville, effectif: g.effectif, solde: g.solde, origine: "grandes", distance: g.distance, siege: g.siege }; });
     return a.concat(b);
   }
   function chaud(r) { return r.origine === "jeunes" && /accueilli|entretien/.test(r.lien); }
@@ -173,7 +173,7 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
       var sub = [r.ville, r.effectif, r.distance != null ? r.distance + " km du site" : ""].filter(Boolean).join(" · ");
       var orig = r.origine === "jeunes"
         ? '<span class="orig j">' + esc(r.lien) + " · " + esc(r.jeune) + "</span>"
-        : '<span class="orig g">Grande entreprise proche' + (r.groupe ? " · " + esc(r.groupe) : "") + "</span>";
+        : '<span class="orig g">' + (r.siege ? "Siège sur place · décision locale" : "Établissement local") + (r.groupe ? " · " + esc(r.groupe) : "") + "</span>";
       return '<article class="co' + (chaud(r) ? " hot" : "") + '" data-id="' + esc(r.id) + '">' +
         '<div class="co-top"><div><h3>' + esc(r.nom) + '</h3><div class="sub">' + esc(sub) + "</div>" + orig + "</div>" +
         '<div class="money"><b>' + eur(r.solde) + "</b><span>solde estimé / an</span></div></div>" +

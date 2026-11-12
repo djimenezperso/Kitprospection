@@ -35,10 +35,10 @@ async function handler(req, res) {
   const cle = String(q.site || "la-courneuve");
   const site = SITES[cle];
   if (!site) { res.status(400).json({ error: "Site inconnu." }); return; }
-  const rayon = 3;
+  const rayon = 5;
   try {
     const vus = new Set(), out = [];
-    for (let page = 1; page <= 3 && out.length < 40; page++) {
+    for (let page = 1; page <= 6 && out.length < 60; page++) {
       const params = new URLSearchParams({
         lat: site[0], long: site[1], radius: rayon, per_page: 25, page, minimal: "true",
         include: "matching_etablissements", limite_matching_etablissements: 10,
@@ -53,6 +53,7 @@ async function handler(req, res) {
           const t = TRANCHES[et.tranche_effectif_salarie];
           if (!t || !et.siret || vus.has(et.siret) || et.etat_administratif !== "A") continue;
           if (EXCLUS.test(et.activite_principale || "")) continue;
+          if (/^[12]/.test(ent.siren || et.siret)) continue; // secteur public (collectivités, État)
           const lat = parseFloat(et.latitude), lon = parseFloat(et.longitude);
           if (Number.isNaN(lat) || Number.isNaN(lon)) continue;
           const d = distanceKm(site[0], site[1], lat, lon);
@@ -68,14 +69,15 @@ async function handler(req, res) {
             effectif: t[0],
             solde: Math.round(t[1] * SALAIRE_MOYEN * TAUX_SOLDE / 50) * 50,
             distance: Math.round(d * 10) / 10,
+            siege: !!et.est_siege,
           });
         }
       }
       if (!j.results || j.results.length < 25) break;
     }
-    out.sort((a, b) => b.solde - a.solde || a.distance - b.distance);
+    out.sort((a, b) => (b.siege - a.siege) || b.solde - a.solde || a.distance - b.distance);
     res.setHeader("Cache-Control", "s-maxage=86400, stale-while-revalidate=3600");
-    res.status(200).json({ site: cle, rayon, hypothese: { salaire: SALAIRE_MOYEN, taux: TAUX_SOLDE }, entreprises: out.slice(0, 40) });
+    res.status(200).json({ site: cle, rayon, hypothese: { salaire: SALAIRE_MOYEN, taux: TAUX_SOLDE }, entreprises: out.slice(0, 50) });
   } catch (e) {
     res.status(502).json({ error: "Le registre des entreprises ne répond pas pour le moment.", detail: String(e && e.message || e).slice(0, 200) });
   }
