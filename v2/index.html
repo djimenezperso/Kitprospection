@@ -116,6 +116,7 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
         <div id="res" hidden>
           <div class="res-head">
             <h2 id="res-title"></h2>
+            <div class="v2-chips"><span class="c-dark">À écrire · <b id="v2-aecrire">0</b></span><span class="c-warn">Envoyées · <b id="v2-env">0</b></span><span class="c-ok" id="v2-km">—</span></div>
             <p class="muted">Source : registre public des entreprises (INSEE, data.gouv.fr). Vérifie toujours les coordonnées avant d'écrire.</p>
           </div>
           <div id="map" class="map" role="img" aria-label="Carte des entreprises trouvées"></div>
@@ -230,9 +231,18 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
   var res = $(".results");
   if ("IntersectionObserver" in window) {
     res.classList.add("sheet");
-    new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) res.classList.add("open"); }); }, { threshold: 0.08 }).observe(res);
+    new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) res.classList.add("open"); }); }, { threshold: 0, rootMargin: "0px 0px -12% 0px" }).observe(res);
   }
-  resume(); hello();
+  // compteurs de la fiche, comme la maquette C
+  function chips() {
+    var n = $("#liste").children.length, env = parseInt($("#nb-envois").textContent, 10) || 0;
+    $("#v2-aecrire").textContent = Math.max(0, n - env);
+    $("#v2-env").textContent = env;
+    $("#v2-km").textContent = "Rayon " + $("#rayon").value + " km";
+  }
+  new MutationObserver(chips).observe($("#liste"), { childList: true });
+  new MutationObserver(chips).observe($("#nb-envois"), { childList: true, characterData: true, subtree: true });
+  resume(); hello(); chips();
 })();
 </script>
 </body>
