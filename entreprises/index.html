@@ -54,6 +54,14 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
   .r.key { background: var(--accent-soft); }
   .r.key b { color: var(--accent-ink); }
   .fine { font-size: .8rem !important; color: var(--muted) !important; }
+  .don-ex { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+  .don-ex div { background: var(--soft); border-radius: 12px; padding: 10px; display: grid; gap: 2px; }
+  .don-ex span { font-size: .76rem; color: var(--ink-2); line-height: 1.25; }
+  .don-ex b { font-size: 1.15rem; }
+  .don-ex b.ok { color: #17794a; }
+  .don-ex .key { background: var(--accent-soft); }
+  .don-ex .key b { color: var(--accent-ink); }
+  #calcul { scroll-margin-top: 80px; }
 </style>
 </head>
 <body>
@@ -92,9 +100,15 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
 
     <section class="card way">
       <h2><span class="n">2</span>Faire un don</h2>
-      <p>Un don financier ou du matériel (ordinateurs, tenues, outillage). En tant qu'entreprise, vous pouvez bénéficier d'une réduction d'impôt au titre du mécénat.</p>
+      <p>Un don financier ou du matériel (ordinateurs, tenues, outillage). <b>L'État vous rembourse 60 % du don</b> en réduction d'impôt (mécénat).</p>
+      <div class="don-ex" aria-label="Exemple pour un don de 1 000 euros">
+        <div><span>Vous donnez</span><b>1 000 €</b></div>
+        <div><span>Réduction d'impôt</span><b class="ok">− 600 €</b></div>
+        <div class="key"><span>Coût réel pour vous</span><b>400 €</b></div>
+      </div>
       <div class="btns">
         <a class="btn ghost" href="https://www.e2c93.fr/faire-un-don/" target="_blank" rel="noopener">Faire un don</a>
+        <a class="btn dark" href="#calcul">Calculer pour mon entreprise</a>
       </div>
     </section>
 

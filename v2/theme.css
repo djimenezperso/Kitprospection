@@ -138,3 +138,4 @@ input:not([type]), input[type="text"], input[type="number"], select, textarea { 
 .top { z-index: 1100; }
 .v2-search { z-index: 900; }
 #res .liste > li:first-child .btn.dark { background: var(--accent); }
+.ways .way h2 .n { background: var(--navy); color: #ffffff; } .ways .way.key h2 .n { background: var(--accent); }
