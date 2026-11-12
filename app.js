@@ -188,8 +188,14 @@ ${p.nom}`;
     $("#espace-jeune").hidden = e !== "jeune";
     $("#espace-conseiller").hidden = e !== "conseiller";
     if (e === "conseiller") renderConseiller();
+    $$(".parcours [data-go]").forEach((a) => (a.dataset.go === e ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current")));
     window.scrollTo({ top: 0 });
   }));
+  // parcours : liens 1 Jeune / 2 Conseiller, et arrivée par /#conseiller
+  $$(".parcours [data-go]").forEach((a) => a.addEventListener("click", (ev) => {
+    ev.preventDefault(); $(`#tab-${a.dataset.go}`).click(); history.replaceState(null, "", `#${a.dataset.go}`);
+  }));
+  if (location.hash === "#conseiller") setTimeout(() => $("#tab-conseiller").click(), 0);
   $$(".subtabs button").forEach((b) => b.addEventListener("click", () => showSub(b.dataset.sub)));
   function showSub(name) {
     $$(".subtabs button").forEach((x) => x.classList.toggle("on", x.dataset.sub === name));

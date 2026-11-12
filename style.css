@@ -171,3 +171,11 @@ details.rel .row { display: flex; gap: 8px; flex-wrap: wrap; }
   .top-in { row-gap: 8px; }
 }
 @media (max-width: 389px) { .createur .cp { display: none; } }
+
+/* ---------- parcours : les 4 espaces de la démo ---------- */
+.parcours { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 6px; margin: 0 0 14px; scrollbar-width: none; }
+.parcours::-webkit-scrollbar { display: none; }
+.parcours a { flex: none; display: inline-flex; gap: 8px; align-items: center; text-decoration: none; color: var(--ink-2); background: var(--card, #fff); border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px 7px 8px; font-weight: 500; font-size: .92rem; min-height: 40px; }
+.parcours a i { font-style: normal; display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--soft); font-size: .8rem; font-weight: 700; }
+.parcours a[aria-current="page"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+.parcours a[aria-current="page"] i { background: var(--accent); color: #fff; }
