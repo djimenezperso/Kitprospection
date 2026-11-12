@@ -17,28 +17,54 @@
   --r: 12px;
   --shadow: none;
 }
-body { font-family: Inter, system-ui, sans-serif; background: var(--bg); }
-h1, h2, h3, .brand, .kpi b, .r b, .money b, .camp b, .stat { font-family: Inter, system-ui, sans-serif !important; letter-spacing: -.02em; }
-.hero h1 { font-weight: 700; }
+body { font: 15px/1.5 Inter, system-ui, sans-serif; background: var(--bg); color: var(--ink); }
+h1, h2, h3, .brand, .kpi b, .r b, .money b, .camp b, .stat { font-family: Inter, system-ui, sans-serif !important; letter-spacing: -.015em; }
+h2 { font-size: 1.05rem; font-weight: 600; }
+h3 { font-weight: 600; }
+.brand { font-size: 1rem; font-weight: 700; }
+/* titres plus calmes, comme la maquette B : petit sur-titre gris, titre net */
+.hero { margin: 4px 0 14px; }
+.hero h1 { font-size: clamp(1.45rem, 2.6vw, 1.85rem); font-weight: 700; line-height: 1.25; max-width: 30ch; }
+.hero h1::before { content: "Kit de prospection · E2C"; display: block; font-size: .8rem; font-weight: 500; color: var(--muted); letter-spacing: 0; margin-bottom: 4px; }
+.hero p { font-size: .95rem; color: #4b5563; }
+.ribbon { font-size: .82rem; padding: 8px 12px; }
+.subtabs button { font-weight: 600; font-size: .95rem; }
+.kpi b { font-size: 1.5rem !important; }
+.kpi span, .muted { font-size: .82rem; color: #4b5563; }
+.ent h3 { font-size: 1rem; }
 a { color: var(--blue); }
 
-/* ---------- barre du haut : marque + les 4 espaces, bien distincts ---------- */
-.top { background: var(--navy); border-bottom: 0; backdrop-filter: none; }
-.top-in { padding: 10px 16px 0; row-gap: 6px; }
-.brand { color: #ffffff; }
-.brand svg { color: #ffffff; }
-.brand svg rect { fill: #0b1c36; }
-.createur { color: #c9d3e6 !important; border-color: rgba(255,255,255,.25) !important; background: transparent !important; }
-.top .parcours { flex-basis: 100%; order: 4; margin: 0; padding: 0; gap: 2px; }
+/* ---------- barre du haut blanche (style B) : marque + les 4 espaces ---------- */
+.top { background: #ffffff; border-bottom: 1px solid var(--line); backdrop-filter: none; }
+.top-in { padding: 0 16px; flex-wrap: nowrap; gap: 20px; align-items: stretch; }
+.brand { color: var(--ink); flex: none; }
+.brand svg { color: var(--navy); }
+.top .parcours { flex: 1 1 auto; min-width: 0; order: 2; margin: 0; padding: 0; gap: 2px; align-items: stretch; }
 .top .parcours a {
-  background: transparent; border: 0; border-radius: 0; color: #c9d3e6;
-  padding: 10px 14px 12px; min-height: 44px; font-weight: 600; font-size: .92rem;
+  background: transparent; border: 0; border-radius: 0; color: #4b5563;
+  padding: 0 12px; min-height: 60px; font-weight: 600; font-size: .92rem;
   border-bottom: 3px solid transparent;
 }
-.top .parcours a i { background: rgba(255,255,255,.12); color: #ffffff; }
-.top .parcours a:hover { color: #ffffff; }
-.top .parcours a[aria-current="page"] { background: transparent; color: #ffffff; border-bottom-color: var(--accent); }
-.top .parcours a[aria-current="page"] i { background: var(--accent); }
+.top .parcours a i { background: var(--soft); color: #4b5563; }
+.top .parcours a:hover { color: var(--ink); }
+.top .parcours a[aria-current="page"] { background: transparent; color: var(--navy); border-bottom-color: var(--accent); }
+.top .parcours a[aria-current="page"] i { background: var(--accent); color: #ffffff; }
+
+/* ---------- espace jeune : la carte d'abord (style C) ---------- */
+#sub-chercher.grid { display: flex; flex-direction: column; gap: 16px; align-items: stretch; }
+#sub-chercher .results { order: 1; }
+#sub-chercher #profil { order: 2; position: static; }
+#sub-chercher #profil h2::after { content: " · affiner la recherche"; font-weight: 500; color: var(--muted); font-size: .95rem; }
+@media (min-width: 760px) {
+  #sub-chercher #profil { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px 18px; align-items: end; }
+  #sub-chercher #profil h2 { grid-column: 1 / -1; }
+  #sub-chercher #profil .btn.big { grid-column: 1 / -1; }
+}
+#res { display: flex; flex-direction: column; }
+#res .map { order: 1; height: clamp(320px, 56vh, 560px); border-radius: 16px; }
+#res .res-head { order: 2; margin: 0; background: #ffffff; border: 1px solid var(--line); border-top: 0; border-radius: 0 0 16px 16px; padding: 14px 16px; margin-top: -12px; position: relative; z-index: 1; }
+#res .res-head::before { content: ""; display: block; width: 40px; height: 5px; border-radius: 99px; background: #d5dbdf; margin: 0 auto 10px; }
+#res .liste { order: 3; }
 
 /* ---------- contenu au style B ---------- */
 .ribbon { background: #ffffff; border: 1px solid var(--line); border-left: 0; color: var(--ink-2); }
@@ -49,7 +75,6 @@ a { color: var(--blue); }
 .btn.primary { background: var(--accent); }
 .btn.ghost { border-color: #d1d5db; }
 .kpi { background: #ffffff; border: 1px solid var(--line); border-radius: var(--r); }
-.kpi b { font-weight: 700; }
 .kpi.accent { background: var(--accent-soft); border-color: #f6d5c7; }
 .subtabs button.on { border-color: var(--navy); }
 .chip.dist { background: var(--blue-soft); color: var(--navy-2); }
@@ -64,3 +89,4 @@ a { color: var(--blue); }
 .r.key { background: var(--accent-soft); }
 .foot { color: var(--muted); }
 input:not([type]), input[type="text"], input[type="number"], select, textarea { background: #ffffff; border-color: #d1d5db; border-radius: 8px; }
+@media (max-width: 699px) { .brand span { display: none; } .top-in { gap: 8px; } .top .parcours a { padding: 0 10px; } }

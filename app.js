@@ -213,7 +213,7 @@ ${p.nom}`;
   $("#rayon").addEventListener("input", (e) => { $("#rayon-out").textContent = e.target.value + " km"; });
 
   // ---------- search ----------
-  let map = null, layer = null;
+  let map = null, layer = null, rechercheAuto = false;
   $("#profil").addEventListener("submit", async (ev) => {
     ev.preventDefault();
     const p = profil();
@@ -225,11 +225,11 @@ ${p.nom}`;
       if (!r.ok) throw new Error(data.error || "Erreur");
       S.resultats = data.entreprises; S.ouvert = null; S.centre = data.site;
       renderResultats();
-      if (window.innerWidth < 900) $("#res").scrollIntoView({ behavior: "smooth", block: "start" });
+      if (window.innerWidth < 900 && !rechercheAuto) $("#res").scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (e) {
       $("#error").textContent = e.message || "Le registre des entreprises ne répond pas. Réessaie dans un instant.";
       $("#error").hidden = false;
-    } finally { $("#loading").hidden = true; }
+    } finally { $("#loading").hidden = true; rechercheAuto = false; }
   });
 
   function renderResultats() {
@@ -480,7 +480,7 @@ E2C 93`;
         <td>${cls ? `<span class="tag ${cls}">${prio}</span>` : prio}</td></tr>`;
     }).join("");
     const url = `${APP_URL}${V2}/entreprises/?site=${encodeURIComponent(p.site)}`;
-    $("#v-page").href = `/entreprises/?site=${encodeURIComponent(p.site)}`;
+    $("#v-page").href = `${V2}/entreprises/?site=${encodeURIComponent(p.site)}`;
     $("#v-copier").onclick = () => {
       const txt = messageEntreprises(url);
       (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(
@@ -490,4 +490,6 @@ E2C 93`;
   }
 
   majBadge();
+  // /v2/ (proposition « carte d'abord ») : la carte s'affiche dès l'arrivée, avec le profil par défaut
+  if (V2) { rechercheAuto = true; $("#profil").requestSubmit(); }
 })();
