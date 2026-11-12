@@ -59,6 +59,12 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
 
     <div id="sub-chercher" class="grid">
       <form id="profil" class="card profil" autocomplete="off">
+        <div class="v2-hello">
+          <span class="v2-bonjour">Bonjour <b id="v2-prenom">Léa</b></span>
+          <strong class="v2-titre">Ta recherche cette semaine</strong>
+          <div class="v2-obj"><span>Objectif : 10 entreprises</span><b><span id="v2-nb">0</span> / 10</b></div>
+          <div class="v2-bar" aria-hidden="true"><i id="v2-fill"></i></div>
+        </div>
         <h2>Mon profil</h2>
         <label>Prénom et nom
           <input id="nom" value="Léa Martin" required>
@@ -197,7 +203,7 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="/app.js"></script>
 <script>
-// /v2/ : barre de recherche et bouton Filtres au-dessus de la carte (maquette C)
+// /v2/ : profil à gauche (style B), carte à droite (style C) ; sur mobile la carte s'ouvre en panneau en descendant
 (function () {
   var $ = function (s) { return document.querySelector(s); };
   var src = $("#metier"), q = $("#q-metier"), form = $("#profil"), btn = $("#q-filtres");
@@ -206,19 +212,27 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
     var typ = $("#typ"), site = $("#site");
     $("#q-resume").textContent = [typ.options[typ.selectedIndex].text, "site de " + site.options[site.selectedIndex].text, "à " + $("#rayon").value + " km"].join(" · ");
   }
+  function hello() {
+    var prenom = ($("#nom").value || "").trim().split(/\s+/)[0] || "";
+    $("#v2-prenom").textContent = prenom;
+    var n = parseInt($("#nb-envois").textContent, 10) || 0;
+    $("#v2-nb").textContent = n;
+    $("#v2-fill").style.width = Math.min(100, n * 10) + "%";
+  }
   q.addEventListener("change", function () { src.value = q.value; resume(); form.requestSubmit(); });
   src.addEventListener("change", function () { q.value = src.value; });
   ["#typ", "#site", "#rayon"].forEach(function (s) { $(s).addEventListener("input", resume); $(s).addEventListener("change", resume); });
-  btn.addEventListener("click", function () {
-    var on = document.body.classList.toggle("filtres-on");
-    btn.setAttribute("aria-expanded", String(on));
-    if (on) form.scrollIntoView({ behavior: "smooth", block: "start" });
-  });
-  form.addEventListener("submit", function () {
-    if (document.body.classList.contains("filtres-on")) { document.body.classList.remove("filtres-on"); btn.setAttribute("aria-expanded", "false"); }
-    q.value = src.value; resume();
-  });
-  resume();
+  $("#nom").addEventListener("input", hello);
+  new MutationObserver(hello).observe($("#nb-envois"), { childList: true, characterData: true, subtree: true });
+  btn.addEventListener("click", function () { form.scrollIntoView({ behavior: "smooth", block: "start" }); setTimeout(function () { $("#site").focus({ preventScroll: true }); }, 400); });
+  form.addEventListener("submit", function () { q.value = src.value; resume(); });
+  // mobile : la carte monte comme un panneau quand on descend
+  var res = $(".results");
+  if ("IntersectionObserver" in window) {
+    res.classList.add("sheet");
+    new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) res.classList.add("open"); }); }, { threshold: 0.08 }).observe(res);
+  }
+  resume(); hello();
 })();
 </script>
 </body>

@@ -50,21 +50,36 @@ a { color: var(--blue); }
 .top .parcours a[aria-current="page"] { background: transparent; color: var(--navy); border-bottom-color: var(--accent); }
 .top .parcours a[aria-current="page"] i { background: var(--accent); color: #ffffff; }
 
-/* ---------- espace jeune : la carte d'abord (style C) ---------- */
+/* ---------- espace jeune : profil à gauche (B), carte à droite (C) ---------- */
 #sub-chercher.grid { display: flex; flex-direction: column; gap: 16px; align-items: stretch; }
-#sub-chercher .results { order: 1; }
-#sub-chercher #profil { order: 2; position: static; }
-#sub-chercher #profil h2::after { content: " · affiner la recherche"; font-weight: 500; color: var(--muted); font-size: .95rem; }
-@media (min-width: 760px) {
-  #sub-chercher #profil { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px 18px; align-items: end; }
-  #sub-chercher #profil h2 { grid-column: 1 / -1; }
-  #sub-chercher #profil .btn.big { grid-column: 1 / -1; }
+#sub-chercher #profil { order: 0; }
+#sub-chercher .results { order: 1; min-width: 0; }
+@media (min-width: 900px) {
+  #sub-chercher.grid { display: grid; grid-template-columns: 340px minmax(0, 1fr); align-items: start; gap: 20px; }
+  #sub-chercher #profil { position: sticky; top: 80px; }
 }
+/* bloc « Bonjour » de la maquette B */
+.v2-hello { display: grid; gap: 8px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.v2-bonjour { font-size: .85rem; color: #4b5563; font-weight: 500; }
+.v2-titre { font-size: 1.2rem; font-weight: 700; line-height: 1.25; }
+.v2-obj { display: flex; justify-content: space-between; font-size: .88rem; color: #4b5563; }
+.v2-obj b { color: var(--ink); }
+.v2-bar { height: 8px; background: var(--line); border-radius: 99px; overflow: hidden; }
+.v2-bar i { display: block; height: 8px; width: 0; background: var(--accent); border-radius: 99px; transition: width .4s ease; }
+/* la carte (C) */
 #res { display: flex; flex-direction: column; }
 #res .map { order: 1; height: clamp(320px, 56vh, 560px); border-radius: 16px; }
+@media (min-width: 900px) { #res .map { height: calc(100vh - 230px); min-height: 440px; } }
 #res .res-head { order: 2; margin: 0; background: #ffffff; border: 1px solid var(--line); border-top: 0; border-radius: 0 0 16px 16px; padding: 14px 16px; margin-top: -12px; position: relative; z-index: 1; }
 #res .res-head::before { content: ""; display: block; width: 40px; height: 5px; border-radius: 99px; background: #d5dbdf; margin: 0 auto 10px; }
 #res .liste { order: 3; }
+/* mobile : la carte arrive comme un panneau qui s'ouvre */
+@media (max-width: 899px) {
+  .results.sheet { background: #ffffff; border-radius: 24px 24px 0 0; box-shadow: 0 -8px 24px rgba(17, 24, 39, .10); padding: 10px 10px 14px; margin: 8px -16px 0; transform: translateY(48px); opacity: .35; transition: transform .45s cubic-bezier(.2,.8,.2,1), opacity .45s ease; }
+  .results.sheet::before { content: ""; display: block; width: 44px; height: 5px; border-radius: 99px; background: #d5dbdf; margin: 0 auto 6px; }
+  .results.sheet.open { transform: none; opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { .results.sheet { transition: none; transform: none; opacity: 1; } }
+}
 
 /* ---------- contenu au style B ---------- */
 .ribbon { background: #ffffff; border: 1px solid var(--line); border-left: 0; color: var(--ink-2); }
@@ -98,15 +113,11 @@ input:not([type]), input[type="text"], input[type="number"], select, textarea { 
 .v2-q { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; background: #ffffff; border-radius: 14px; min-height: 48px; padding: 0 12px; box-shadow: 0 4px 14px rgba(17, 24, 39, .12); color: #5b6670; }
 .v2-q select { flex: 1 1 auto; min-width: 0; border: 0 !important; background: transparent !important; min-height: 46px; padding: 0; font-size: .98rem; font-weight: 500; color: var(--ink); appearance: auto; }
 .v2-filtres { flex: none; display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 14px; border: 0; border-radius: 14px; background: var(--ink); color: #ffffff; font: inherit; font-weight: 600; cursor: pointer; box-shadow: 0 4px 14px rgba(17, 24, 39, .12); }
-.filtres-on .v2-filtres { background: var(--accent); }
 @media (max-width: 480px) { .v2-filtres span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); } .v2-filtres { width: 48px; justify-content: center; padding: 0; } }
 .v2-resume { order: 2; margin: 0; font-size: .82rem; color: #4b5563; }
 .results { display: flex; flex-direction: column; }
 .results .v2-search { order: 0; } .results #empty, .results #loading, .results #error, .results #res { order: 1; }
 .results .v2-resume { order: 2; padding: 8px 2px 0; }
-/* le profil devient le panneau « Filtres », caché jusqu'au clic */
-#sub-chercher #profil { display: none !important; }
-.filtres-on #sub-chercher #profil { display: flex !important; order: 0; }
-@media (min-width: 760px) { .filtres-on #sub-chercher #profil { display: grid !important; } }
-#sub-chercher #profil h2::after { content: " · filtres"; }
+
 #profil { scroll-margin-top: 76px; }
+@media (max-width: 899px) { #res .res-head::before { display: none; } }
