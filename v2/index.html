@@ -242,6 +242,19 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
   }
   new MutationObserver(chips).observe($("#liste"), { childList: true });
   new MutationObserver(chips).observe($("#nb-envois"), { childList: true, characterData: true, subtree: true });
+  // enlace E2C 92 (?e2c=92 ou site du 92) : Entreprise et Relations vont vers les pages du 92
+  var S92 = ["clichy", "bagneux", "nanterre"];
+  var force92 = /[?&]e2c=92\b/.test(location.search);
+  if (force92 && S92.indexOf($("#site").value) < 0) { $("#site").value = "clichy"; $("#site").dispatchEvent(new Event("change")); }
+  function nav92() {
+    var is92 = force92 || S92.indexOf($("#site").value) >= 0;
+    var aE = document.querySelector('.parcours a[href*="entreprises/"]'), aR = document.querySelector('.parcours a[href*="relations/"]');
+    if (aE) aE.href = is92 ? "/v2/92/entreprises/?site=" + (S92.indexOf($("#site").value) >= 0 ? $("#site").value : "clichy") : "/v2/entreprises/?site=la-courneuve";
+    if (aR) aR.href = is92 ? "/v2/92/relations/" : "/v2/relations/";
+    var b = document.querySelector(".brand"); if (b) b.href = is92 ? "/v2/92/" : "/v2/";
+  }
+  $("#site").addEventListener("change", nav92);
+  nav92();
   resume(); hello(); chips();
 })();
 </script>

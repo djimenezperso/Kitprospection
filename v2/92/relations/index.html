@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Relations entreprises · Kit de prospection</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23152238'/%3E%3Ccircle cx='16' cy='16' r='8' fill='none' stroke='%23ff6b3d' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='2.5' fill='%23ff6b3d'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="/v2/theme.css">
+
+<script>
+(function(){try{var q=new URLSearchParams(location.search);if(q.has('soyyo'))localStorage.setItem('va-soy-yo','1');if(q.has('noyo'))localStorage.removeItem('va-soy-yo');}catch(e){}})();
+window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments)};
+window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){var u=new URL(ev.url);u.searchParams.delete('soyyo');if(u.pathname.indexOf('/_yo')!==0)u.pathname='/_yo'+u.pathname;ev.url=u.toString();}}catch(e){}return ev;});
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
+<style>
+  .bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin: 4px 0 14px; }
+  .bar select { min-height: 42px; }
+  .filters { display: flex; gap: 6px; flex-wrap: wrap; }
+  .filters button { border: 1px solid var(--line); background: var(--card); border-radius: 99px; padding: 7px 13px; min-height: 38px; cursor: pointer; color: var(--ink-2); font-weight: 500; }
+  .filters button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .camp { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; justify-content: space-between; background: var(--blue-soft); border-radius: 14px; padding: 12px 16px; margin-bottom: 14px; }
+  .camp b { font-family: "Bricolage Grotesque", sans-serif; font-size: 1.3rem; color: var(--blue); }
+  .camp p { margin: 0; color: var(--ink-2); font-size: .92rem; }
+  .list { display: grid; gap: 12px; }
+  .co { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; display: grid; gap: 10px; }
+  .co.hot { border-left: 5px solid var(--accent); }
+  .co-top { display: flex; gap: 10px; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; }
+  .co h3 { margin: 0; font-size: 1.05rem; }
+  .co .sub { color: var(--muted); font-size: .86rem; margin-top: 2px; }
+  .money { text-align: right; }
+  .money b { font-family: "Bricolage Grotesque", sans-serif; font-size: 1.25rem; color: var(--accent-ink); display: block; line-height: 1.1; }
+  .money span { font-size: .78rem; color: var(--muted); }
+  .orig { display: inline-block; font-size: .76rem; font-weight: 700; border-radius: 99px; padding: 2px 9px; margin-top: 6px; }
+  .orig.j { background: var(--ok-soft); color: var(--ok); }
+  .orig.g { background: var(--blue-soft); color: var(--blue); }
+  .who { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; font-size: .9rem; color: var(--ink-2); }
+  .who .mask { font-variant-numeric: tabular-nums; letter-spacing: .04em; }
+  .acts { display: grid; gap: 8px; grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 640px) { .acts { grid-template-columns: 180px minmax(0, 1fr) auto; align-items: center; } }
+  .acts select, .acts input { min-height: 42px; width: 100%; }
+  .acts .btns { display: flex; gap: 8px; flex-wrap: wrap; }
+  .acts .btn { min-height: 42px; padding: 8px 14px; }
+  .empty { text-align: center; color: var(--muted); padding: 24px; }
+  .hint { font-size: .86rem; color: var(--muted); margin: 10px 0 0; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <a class="brand" href="/v2/92/" aria-label="Kit de prospection">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="currentColor"/><circle cx="16" cy="16" r="8" fill="none" stroke="#ff6b3d" stroke-width="3"/><circle cx="16" cy="16" r="2.5" fill="#ff6b3d"/></svg>
+      <span>Kit de prospection</span>
+    </a>
+    <nav class="parcours" aria-label="Les espaces de la démo">
+    <a href="/v2/?e2c=92#jeune"><i>1</i>Jeune</a>
+    <a href="/v2/?e2c=92#conseiller"><i>2</i>Conseiller</a>
+    <a href="/v2/92/entreprises/?site=clichy"><i>3</i>Entreprise</a>
+    <a href="/v2/92/relations/" aria-current="page"><i>4</i>Relations entreprises</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <p class="ribbon"><strong>Démo.</strong> Les grandes entreprises sont réelles (registre public, effectifs officiels) ; les entreprises « exemple » et tous les contacts sont fictifs. Dans la version réelle, les coordonnées des décideurs sont ajoutées par enrichissement et restent privées. Vos notes restent dans ce navigateur.</p>
+
+  <div class="hero">
+    <h1>Qui appeler en premier pour la taxe d'apprentissage.</h1>
+    <p>Les entreprises contactées par les jeunes et les grandes entreprises autour de chaque site, classées par ce qu'elles peuvent verser à l'E2C 92.</p>
+  </div>
+
+  <div class="camp">
+    <div><b id="jours">—</b><p>avant l'ouverture estimée de la campagne SOLTéA 2027 (fin mai, comme en 2026)</p></div>
+    <button class="btn dark" type="button" id="export">Exporter la liste (CSV)</button>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><b id="k-tot">0</b><span>entreprises dans le vivier</span></div>
+    <div class="kpi"><b id="k-app">0</b><span>à appeler</span></div>
+    <div class="kpi"><b id="k-pro">0</b><span>promesses ou versements</span></div>
+    <div class="kpi accent"><b id="k-eur">0 €</b><span>promis (estimation)</span></div>
+  </div>
+
+  <div class="bar">
+    <div class="filters" role="group" aria-label="Filtrer">
+      <button type="button" class="on" data-f="tous">Toutes</button>
+      <button type="button" data-f="jeunes">Contactées par les jeunes</button>
+      <button type="button" data-f="grandes">Grandes entreprises</button>
+      <button type="button" data-f="suivre">À suivre</button>
+    </div>
+    <label class="sr" for="site" style="position:absolute;left:-9999px">Site</label>
+    <select id="site" aria-label="Site">
+      <option value="clichy">Site de Clichy</option>
+      <option value="bagneux">Site de Bagneux</option>
+      <option value="nanterre">Site de Nanterre</option>
+    </select>
+  </div>
+
+  <div class="list" id="list"><div class="empty"><div class="spin"></div>Recherche des grandes entreprises autour du site…</div></div>
+  <p class="hint">Estimation du solde : effectif minimum de la tranche × 38 000 € de salaire brut moyen × 0,09 %. L'entreprise verse sur sa masse salariale totale, pas seulement celle de l'établissement : c'est un ordre de grandeur pour décider qui appeler.</p>
+</main>
+
+<footer class="foot"><div class="wrap">Kit de prospection · Relations entreprises</div></footer>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (s) { return document.querySelector(s); };
+  var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
+  var eur = function (n) { return Math.round(n).toLocaleString("fr-FR") + " €"; };
+  var VILLES = { clichy: "Clichy", bagneux: "Bagneux", nanterre: "Nanterre" };
+  var STATUTS = ["À appeler", "Appelée, à rappeler", "Rendez-vous", "Promesse de versement", "A versé", "Pas cette année"];
+  var ROLES = ["Responsable RH", "Directrice des ressources humaines", "Chargé RSE", "Directeur d'établissement", "Responsable recrutement"];
+  // entreprises contactées par les jeunes : fictives (exemples)
+  var EXEMPLES = [
+    { id: "ex1", nom: "Boulangerie du Marché (exemple)", ville: "Bagneux", effectif: "6 à 9 salariés", solde: 250, lien: "A accueilli un stagiaire", jeune: "Inès" },
+    { id: "ex2", nom: "Garage des Lilas (exemple)", ville: "Nanterre", effectif: "10 à 19 salariés", solde: 400, lien: "A reçu un jeune en entretien", jeune: "Moussa" },
+    { id: "ex3", nom: "Hôtel Canal (exemple)", ville: "Clichy", effectif: "20 à 49 salariés", solde: 700, lien: "A répondu à un jeune", jeune: "Sarah" },
+    { id: "ex4", nom: "Logistique Est (exemple)", ville: "Gennevilliers", effectif: "50 à 99 salariés", solde: 1700, lien: "A accueilli un stagiaire", jeune: "Yanis" },
+  ];
+
+  var store = {};
+  try { store = JSON.parse(localStorage.getItem("kit-relations-v1") || "{}") || {}; } catch (e) { store = {}; }
+  var save = function () { try { localStorage.setItem("kit-relations-v1", JSON.stringify(store)); } catch (e) {} };
+  var etat = function (id) { return store[id] || (store[id] = { statut: "À appeler", note: "" }); };
+
+  var filtre = "tous", grandes = [], siteCle = "clichy";
+  try { var s = new URLSearchParams(location.search).get("site"); if (VILLES[s]) siteCle = s; } catch (e) {}
+  $("#site").value = siteCle;
+
+  // compte à rebours vers l'ouverture estimée
+  (function () {
+    var d = Math.ceil((new Date("2027-05-26T00:00:00") - new Date()) / 864e5);
+    $("#jours").textContent = d > 0 ? d + " jours" : "Campagne ouverte";
+  })();
+
+  function toast(t) { var el = $("#toast"); el.textContent = t; el.classList.add("on"); clearTimeout(toast._t); toast._t = setTimeout(function () { el.classList.remove("on"); }, 2600); }
+
+  function hash(s) { var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return Math.abs(h); }
+  function rows() {
+    var a = EXEMPLES.map(function (e) { return Object.assign({ origine: "jeunes" }, e); });
+    var b = grandes.map(function (g) { return { id: g.siret, nom: g.nom, groupe: g.groupe && g.groupe !== g.nom ? g.groupe : "", ville: g.ville, effectif: g.effectif, solde: g.solde, origine: "grandes", distance: g.distance, siege: g.siege }; });
+    return a.concat(b);
+  }
+  function chaud(r) { return r.origine === "jeunes" && /accueilli|entretien/.test(r.lien); }
+
+  function render() {
+    var all = rows();
+    var list = all.filter(function (r) {
+      var st = etat(r.id).statut;
+      if (filtre === "jeunes") return r.origine === "jeunes";
+      if (filtre === "grandes") return r.origine === "grandes";
+      if (filtre === "suivre") return st === "Appelée, à rappeler" || st === "Rendez-vous" || st === "Promesse de versement";
+      return true;
+    }).sort(function (x, y) { return (chaud(y) - chaud(x)) || (y.solde - x.solde); });
+
+    $("#k-tot").textContent = all.length;
+    $("#k-app").textContent = all.filter(function (r) { return etat(r.id).statut === "À appeler"; }).length;
+    var pro = all.filter(function (r) { var s = etat(r.id).statut; return s === "Promesse de versement" || s === "A versé"; });
+    $("#k-pro").textContent = pro.length;
+    $("#k-eur").textContent = eur(pro.reduce(function (t, r) { return t + r.solde; }, 0));
+
+    if (!list.length) { $("#list").innerHTML = '<div class="empty">Aucune entreprise dans ce filtre.</div>'; return; }
+    $("#list").innerHTML = list.map(function (r) {
+      var e = etat(r.id), role = ROLES[hash(r.id) % ROLES.length];
+      var sub = [r.ville, r.effectif, r.distance != null ? r.distance + " km du site" : ""].filter(Boolean).join(" · ");
+      var orig = r.origine === "jeunes"
+        ? '<span class="orig j">' + esc(r.lien) + " · " + esc(r.jeune) + "</span>"
+        : '<span class="orig g">' + (r.siege ? "Siège sur place · décision locale" : "Établissement local") + (r.groupe ? " · " + esc(r.groupe) : "") + "</span>";
+      return '<article class="co' + (chaud(r) ? " hot" : "") + '" data-id="' + esc(r.id) + '">' +
+        '<div class="co-top"><div><h3>' + esc(r.nom) + '</h3><div class="sub">' + esc(sub) + "</div>" + orig + "</div>" +
+        '<div class="money"><b>' + eur(r.solde) + "</b><span>solde estimé / an</span></div></div>" +
+        '<div class="who"><span>' + esc(role) + ' (contact fictif)</span><span class="mask">06 •• •• •• ••</span></div>' +
+        '<div class="acts"><select aria-label="Statut" data-k="statut">' + STATUTS.map(function (s) { return "<option" + (s === e.statut ? " selected" : "") + ">" + s + "</option>"; }).join("") + "</select>" +
+        '<input type="text" data-k="note" placeholder="Note d\'appel…" value="' + esc(e.note) + '">' +
+        '<div class="btns"><button class="btn dark" type="button" data-a="appel">Appeler</button><button class="btn ghost" type="button" data-a="page">Envoyer la page</button></div></div>' +
+        "</article>";
+    }).join("");
+  }
+
+  $("#list").addEventListener("change", function (ev) {
+    var co = ev.target.closest(".co"); if (!co) return;
+    var k = ev.target.getAttribute("data-k"); if (!k) return;
+    etat(co.getAttribute("data-id"))[k] = ev.target.value; save();
+    if (k === "statut") { render(); toast("Statut mis à jour."); }
+  });
+  $("#list").addEventListener("click", function (ev) {
+    var b = ev.target.closest("[data-a]"); if (!b) return;
+    var co = b.closest(".co"), id = co.getAttribute("data-id");
+    var r = rows().filter(function (x) { return x.id === id; })[0]; if (!r) return;
+    if (b.getAttribute("data-a") === "appel") {
+      var e = etat(id); if (e.statut === "À appeler") { e.statut = "Appelée, à rappeler"; save(); render(); }
+      toast("Démo : le numéro est masqué. Dans la version réelle, l'appel part directement du téléphone.");
+      return;
+    }
+    var url = location.origin + "/v2/92/entreprises/?site=" + encodeURIComponent(siteCle) + "&ent=" + encodeURIComponent(r.nom.replace(/ \(exemple\)$/, ""));
+    var corps = "Bonjour,\n\nMerci pour notre échange. Comme convenu, voici comment soutenir l'École de la deuxième chance des Hauts-de-Seine, notamment en fléchant le solde de votre taxe d'apprentissage sur SOLTéA (cela ne vous coûte rien de plus) :\n" + url + "\n\nBien cordialement,\n\nPôle relations entreprises · E2C 92";
+    location.href = "mailto:?subject=" + encodeURIComponent("E2C 92 · taxe d'apprentissage et partenariat") + "&body=" + encodeURIComponent(corps);
+  });
+  Array.prototype.forEach.call(document.querySelectorAll(".filters button"), function (b) {
+    b.addEventListener("click", function () {
+      Array.prototype.forEach.call(document.querySelectorAll(".filters button"), function (x) { x.classList.toggle("on", x === b); });
+      filtre = b.getAttribute("data-f"); render();
+    });
+  });
+  $("#site").addEventListener("change", function () { siteCle = this.value; charger(); });
+
+  $("#export").addEventListener("click", function () {
+    var lignes = [["Entreprise", "Origine", "Ville", "Effectif", "Solde estimé (€)", "Statut", "Note"]];
+    rows().forEach(function (r) { var e = etat(r.id); lignes.push([r.nom, r.origine === "jeunes" ? "Contactée par un jeune" : "Grande entreprise proche", r.ville, r.effectif, r.solde, e.statut, e.note]); });
+    var csv = "﻿" + lignes.map(function (l) { return l.map(function (c) { return '"' + String(c == null ? "" : c).replace(/"/g, '""') + '"'; }).join(";"); }).join("\n");
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    a.download = "vivier-entreprises-e2c92-" + siteCle + ".csv"; document.body.appendChild(a); a.click(); a.remove();
+    toast("Liste exportée.");
+  });
+
+  function charger() {
+    $("#list").innerHTML = '<div class="empty"><div class="spin"></div>Recherche des grandes entreprises autour de ' + esc(VILLES[siteCle]) + "…</div>";
+    fetch("/api/grandes?site=" + encodeURIComponent(siteCle)).then(function (r) { return r.json(); }).then(function (j) {
+      grandes = (j && j.entreprises) || [];
+      if (j && j.error) toast(j.error);
+      render();
+    }).catch(function () { grandes = []; toast("Le registre des entreprises ne répond pas : seuls les exemples sont affichés."); render(); });
+  }
+  charger();
+})();
+</script>
+</body>
+</html>

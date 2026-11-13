@@ -9,6 +9,9 @@ const SITES = {
   "la-courneuve": [48.9283, 2.3963],
   rosny: [48.8743, 2.4861],
   pantin: [48.8944, 2.4092],
+  clichy: [48.9044, 2.3059],
+  bagneux: [48.796, 2.309],
+  nanterre: [48.8924, 2.2071],
 };
 // tranche → [libellé, effectif retenu pour l'estimation (bas de la tranche, prudent)]
 const TRANCHES = {

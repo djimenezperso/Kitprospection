@@ -97,13 +97,16 @@ P.-S. Pour découvrir l'École de la deuxième chance et comment elle travaille 
   // version /v2/ (proposition de design) : ses liens restent dans /v2/
   const V2 = location.pathname.startsWith("/v2") ? "/v2" : "";
   const SITES_93 = ["sevran", "la-courneuve", "rosny", "pantin"];
+  const SITES_92 = ["clichy", "bagneux", "nanterre"];
+  // dossier de la page Entreprises selon le site : E2C 93 partout, E2C 92 seulement dans /v2/ (/v2/92/)
+  const dossierEnt = (site) => SITES_93.includes(site) ? `${V2}` : (V2 && SITES_92.includes(site) ? "/v2/92" : null);
   function lienEntreprise(p, e) {
-    if (!SITES_93.includes(p.site)) return "";
+    if (dossierEnt(p.site) === null) return "";
     const prenom = (p.nom || "").split(/\s+/)[0];
     const q = new URLSearchParams({ site: p.site });
     if (prenom && prenom !== "Prénom") q.set("j", prenom);
     if (e && (e.nom || e.entreprise)) q.set("ent", e.nom || e.entreprise);
-    return `${APP_URL}${V2}/entreprises/?${q}`;
+    return `${APP_URL}${dossierEnt(p.site)}/entreprises/?${q}`;
   }
 
   function messageRelance(p, e) {
@@ -446,7 +449,21 @@ ${p.nom}`;
   };
   const ORDRE = ["Stage", "Entretien obtenu", "Réponse positive", "Envoyé", "Refus"];
 
-  function messageEntreprises(url) {
+  function messageEntreprises(url, est92) {
+    if (est92) return `Objet : Votre taxe d'apprentissage pour l'E2C 92
+
+Bonjour,
+
+Ces dernières semaines, un ou une stagiaire de l'École de la deuxième chance des Hauts-de-Seine vous a contacté pour un stage. Merci de l'attention que vous lui avez portée.
+
+L'école vit en partie grâce au solde de la taxe d'apprentissage que les entreprises choisissent de lui verser sur SOLTéA. Cela ne vous coûte rien de plus : c'est une somme que vous versez déjà, et c'est vous qui choisissez à qui elle va.
+
+Tout est expliqué en deux minutes ici : ${url}
+
+Bien cordialement,
+
+Pôle relations entreprises
+E2C 92`;
     return `Objet : Votre taxe d'apprentissage pour l'E2C 93
 
 Bonjour,
@@ -465,7 +482,8 @@ E2C 93`;
 
   function renderVivier(p, env) {
     const box = $("#vivier");
-    const est93 = SITES_93.includes(p.site);
+    const est93 = dossierEnt(p.site) !== null;
+    const est92 = SITES_92.includes(p.site);
     box.hidden = !est93;
     if (!est93) return;
     const live = env.map((e) => [e.entreprise, e.ville || "", e.statut, true]);
@@ -479,10 +497,10 @@ E2C 93`;
       return `<tr class="${r[3] ? "live" : ""}"><td><b>${esc(r[0])}</b></td><td>${esc(r[1])}</td><td>${lien}</td>
         <td>${cls ? `<span class="tag ${cls}">${prio}</span>` : prio}</td></tr>`;
     }).join("");
-    const url = `${APP_URL}${V2}/entreprises/?site=${encodeURIComponent(p.site)}`;
-    $("#v-page").href = `${V2}/entreprises/?site=${encodeURIComponent(p.site)}`;
+    const url = `${APP_URL}${dossierEnt(p.site)}/entreprises/?site=${encodeURIComponent(p.site)}`;
+    $("#v-page").href = `${dossierEnt(p.site)}/entreprises/?site=${encodeURIComponent(p.site)}`;
     $("#v-copier").onclick = () => {
-      const txt = messageEntreprises(url);
+      const txt = messageEntreprises(url, est92);
       (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(
         () => toast("Message copié : collez-le dans un e-mail aux entreprises de la liste."),
         () => toast("Copie impossible ici : sélectionnez le texte à la main."));
