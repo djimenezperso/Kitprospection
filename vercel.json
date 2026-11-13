@@ -1,0 +1,12 @@
+{
+  "redirects": [
+    { "source": "/e2c93", "destination": "/v2/relations/", "permanent": false },
+    { "source": "/e2c93/entreprises", "destination": "/v2/entreprises/", "permanent": false },
+    { "source": "/e2c93/relations", "destination": "/v2/relations/", "permanent": false },
+    { "source": "/e2c93/jeunes", "destination": "/v2/", "permanent": false },
+    { "source": "/e2c92", "destination": "/v2/92/", "permanent": false },
+    { "source": "/e2c92/entreprises", "destination": "/v2/92/entreprises/", "permanent": false },
+    { "source": "/e2c92/relations", "destination": "/v2/92/relations/", "permanent": false },
+    { "source": "/e2c92/jeunes", "destination": "/v2/?e2c=92", "permanent": false }
+  ]
+}
