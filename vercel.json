@@ -49,6 +49,11 @@
       "source": "/stephenson/apprenti",
       "destination": "/v2/stephenson/apprenti/",
       "permanent": false
+    },
+    {
+      "source": "/stephenson/cfa",
+      "destination": "/v2/stephenson/cfa/",
+      "permanent": false
     }
   ]
 }

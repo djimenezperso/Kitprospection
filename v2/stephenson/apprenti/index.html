@@ -26,7 +26,7 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
 <body>
 <header class="top">
   <div class="top-in">
-    <a class="brand" href="/v2/stephenson/apprenti/" aria-label="Kit de prospection · Stephenson Formation">
+    <a class="brand" href="/v2/stephenson/" aria-label="Kit de prospection · Stephenson Formation">
       <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="currentColor"/><circle cx="16" cy="16" r="8" fill="none" stroke="#ff6b3d" stroke-width="3"/><circle cx="16" cy="16" r="2.5" fill="#ff6b3d"/></svg>
       <span>Kit de prospection · Stephenson</span>
     </a>
@@ -34,10 +34,9 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
       <button role="tab" id="tab-jeune" aria-selected="true" data-espace="jeune">Espace jeune</button>
       <button role="tab" id="tab-conseiller" aria-selected="false" data-espace="conseiller">Espace conseiller</button>
     </div>
-    <nav class="parcours" aria-label="Les espaces de la démo">
-    <a href="#jeune" data-go="jeune" aria-current="page"><i>1</i>Apprenti</a>
-    <a href="#conseiller" data-go="conseiller"><i>2</i>Référent</a>
-    <a href="/v2/stephenson/"><i>3</i>CRM entreprises</a>
+    <nav class="parcours" aria-label="Espaces">
+    <a href="#jeune" data-go="jeune" aria-current="page"><i>1</i>Espace apprenti</a>
+    <a href="/v2/stephenson/cfa/" id="nav-st"><i>2</i>Espace Stephenson</a>
   </nav>
   </div>
 </header>
@@ -159,6 +158,7 @@ window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){va
 
   <!-- ===================== ESPACE CONSEILLER ===================== -->
   <section id="espace-conseiller" hidden>
+    <p style="margin:0 0 6px"><a href="/v2/stephenson/cfa/">← Retour à l'Espace Stephenson</a></p>
     <div class="hero">
       <h1>Mon groupe en un coup d'œil.</h1>
       <p>Qui cherche encore une entreprise, qui relance, qui n'a rien envoyé : le référent voit tout sans courir après chaque apprenti.</p>
@@ -271,6 +271,8 @@ window.KIT_CFG = {
   new MutationObserver(chips).observe($("#nb-envois"), { childList: true, characterData: true, subtree: true });
   // la formation choisie oriente la recherche : MCO → commerce, NDRC → vente B2B
   $("#formation").addEventListener("change", function () { src.value = this.value === "NDRC" ? "commercial" : "vente"; q.value = src.value; resume(); form.requestSubmit(); });
+  function navSt() { var c = location.hash === "#conseiller"; var a = $("#nav-st"), j = document.querySelector('.parcours [data-go="jeune"]'); if (c) { a.setAttribute("aria-current", "page"); j.removeAttribute("aria-current"); } }
+  window.addEventListener("hashchange", navSt); setTimeout(navSt, 50);
   resume(); hello(); chips();
 })();
 </script>
