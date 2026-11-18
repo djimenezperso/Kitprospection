@@ -44,6 +44,11 @@
       "source": "/stephenson",
       "destination": "/v2/stephenson/",
       "permanent": false
+    },
+    {
+      "source": "/stephenson/apprenti",
+      "destination": "/v2/stephenson/apprenti/",
+      "permanent": false
     }
   ]
 }

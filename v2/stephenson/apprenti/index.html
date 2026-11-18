@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Espace apprenti · Stephenson Formation</title>
+<meta name="robots" content="noindex">
+<meta name="description" content="Trouver des entreprises proches, écrire, relancer, suivre : stage, alternance ou emploi.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23152238'/%3E%3Ccircle cx='16' cy='16' r='8' fill='none' stroke='%23ff6b3d' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='2.5' fill='%23ff6b3d'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="/v2/theme.css">
+
+<!-- Vercel Web Analytics. Visita la web con ?soyyo=1 para marcar este navegador como "yo" (y ?noyo=1 para quitarlo). -->
+<script>
+(function(){try{var q=new URLSearchParams(location.search);if(q.has('soyyo'))localStorage.setItem('va-soy-yo','1');if(q.has('noyo'))localStorage.removeItem('va-soy-yo');}catch(e){}})();
+window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments)};
+window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){var u=new URL(ev.url);u.searchParams.delete('soyyo');if(u.pathname.indexOf('/_yo')!==0)u.pathname='/_yo'+u.pathname;ev.url=u.toString();}}catch(e){}return ev;});
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <a class="brand" href="/v2/stephenson/apprenti/" aria-label="Kit de prospection · Stephenson Formation">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="currentColor"/><circle cx="16" cy="16" r="8" fill="none" stroke="#ff6b3d" stroke-width="3"/><circle cx="16" cy="16" r="2.5" fill="#ff6b3d"/></svg>
+      <span>Kit de prospection · Stephenson</span>
+    </a>
+    <div class="seg" role="tablist" aria-label="Espace" style="display:none">
+      <button role="tab" id="tab-jeune" aria-selected="true" data-espace="jeune">Espace jeune</button>
+      <button role="tab" id="tab-conseiller" aria-selected="false" data-espace="conseiller">Espace conseiller</button>
+    </div>
+    <nav class="parcours" aria-label="Les espaces de la démo">
+    <a href="#jeune" data-go="jeune" aria-current="page"><i>1</i>Apprenti</a>
+    <a href="#conseiller" data-go="conseiller"><i>2</i>Référent</a>
+    <a href="/v2/stephenson/"><i>3</i>CRM entreprises</a>
+  </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <p class="ribbon"><strong>Démo.</strong> Les entreprises sont réelles (registre public, autour du CFA). L'outil n'envoie aucun message à ta place ; tes données restent dans cet onglet et s'effacent à sa fermeture.</p>
+
+  <!-- ===================== ESPACE JEUNE ===================== -->
+  <section id="espace-jeune">
+    <div class="hero">
+      <h1>Trouve des entreprises près de toi, écris, relance.</h1>
+      <p>Alternance, stage ou emploi : en quelques minutes, une liste d'entreprises réelles autour de Stephenson Formation et un message prêt à envoyer.</p>
+    </div>
+
+    <nav class="subtabs" aria-label="Étapes">
+      <button class="on" data-sub="chercher">1. Chercher</button>
+      <button data-sub="suivi">2. Mon suivi <span class="pill" id="nb-envois">0</span></button>
+    </nav>
+
+    <div id="sub-chercher" class="grid">
+      <form id="profil" class="card profil" autocomplete="off">
+        <div class="v2-hello">
+          <span class="v2-bonjour">Bonjour <b id="v2-prenom">Léa</b></span>
+          <strong class="v2-titre">Ta recherche cette semaine</strong>
+          <div class="v2-obj"><span>Objectif : 10 entreprises</span><b><span id="v2-nb">0</span> / 10</b></div>
+          <div class="v2-bar" aria-hidden="true"><i id="v2-fill"></i></div>
+        </div>
+        <h2>Mon profil</h2>
+        <label>Prénom et nom
+          <input id="nom" value="Léa Martin" required>
+        </label>
+        <label>Ma formation
+          <select id="formation"><option value="MCO">BTS MCO · Management commercial opérationnel</option><option value="NDRC">BTS NDRC · Négociation et digitalisation de la relation client</option></select>
+        </label>
+        <fieldset class="row2">
+          <legend>Accords du message</legend>
+          <label class="radio"><input type="radio" name="genre" value="F" checked> Féminin</label>
+          <label class="radio"><input type="radio" name="genre" value="M"> Masculin</label>
+        </fieldset>
+        <label>Je cherche
+          <select id="typ">
+            <option value="stage">un stage</option>
+            <option value="alternance" selected>une alternance</option>
+            <option value="emploi">un emploi</option>
+          </select>
+        </label>
+        <label>Mon CFA
+          <select id="site"></select>
+        </label>
+        <label>Métier recherché
+          <select id="metier"></select>
+        </label>
+        <label>Distance maximale : <output id="rayon-out">3 km</output>
+          <input type="range" id="rayon" min="1" max="10" value="3">
+        </label>
+        <label class="check"><input type="checkbox" id="sal" checked> Seulement les entreprises qui ont des salariés</label>
+        <button class="btn primary big" type="submit">Chercher les entreprises</button>
+      </form>
+
+      <div class="results">
+        <div class="v2-search" role="search">
+          <label class="v2-q">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+            <span class="sr">Métier recherché</span>
+            <select id="q-metier" aria-label="Métier recherché"></select>
+          </label>
+          <button type="button" class="v2-filtres" id="q-filtres" aria-expanded="false" aria-controls="profil">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+            <span>Filtres</span>
+          </button>
+        </div>
+        <p class="v2-resume" id="q-resume"></p>
+        <div id="empty" class="card empty">
+          <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="28" cy="28" r="16" fill="none" stroke="currentColor" stroke-width="4"/><path d="M40 40l12 12" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>
+          <p>Remplis ton profil puis lance la recherche.<br>Les entreprises apparaîtront ici, sur une carte.</p>
+        </div>
+        <div id="loading" class="card empty" hidden><div class="spin" aria-hidden="true"></div><p>Recherche dans le registre des entreprises…</p></div>
+        <div id="error" class="card alert" hidden></div>
+        <div id="res" hidden>
+          <div class="res-head">
+            <h2 id="res-title"></h2>
+            <div class="v2-chips"><span class="c-dark">À écrire · <b id="v2-aecrire">0</b></span><span class="c-warn">Envoyées · <b id="v2-env">0</b></span><span class="c-ok" id="v2-km">—</span></div>
+            <p class="muted">Source : registre public des entreprises (INSEE, data.gouv.fr). Vérifie toujours les coordonnées avant d'écrire.</p>
+          </div>
+          <div id="map" class="map" role="img" aria-label="Carte des entreprises trouvées"></div>
+          <ol id="liste" class="liste"></ol>
+        </div>
+      </div>
+    </div>
+
+    <div id="sub-suivi" hidden>
+      <div class="card">
+        <div class="suivi-head">
+          <h2>Mon suivi</h2>
+          <div class="sim">
+            <span id="date-sim" class="tag warn" hidden></span>
+            <button class="btn ghost" id="btn-sim" type="button">Simuler : 8 jours plus tard</button>
+            <button class="btn ghost" id="btn-today" type="button" hidden>Revenir à aujourd'hui</button>
+          </div>
+        </div>
+        <div class="kpis kpis3">
+          <div class="kpi"><b id="k-env">0</b><span>candidatures envoyées</span></div>
+          <div class="kpi"><b id="k-rep">0</b><span>réponses</span></div>
+          <div class="kpi accent"><b id="k-rel">0</b><span>à relancer</span></div>
+        </div>
+        <div id="suivi-vide" class="empty small"><p>Aucun envoi pour le moment. Écris à une entreprise dans « 1. Chercher ».</p></div>
+        <div class="table-wrap"><table id="suivi-table" hidden>
+          <thead><tr><th>Entreprise</th><th>Envoyé le</th><th>Relance le</th><th>Statut</th></tr></thead>
+          <tbody></tbody>
+        </table></div>
+        <p class="muted">Relance conseillée 7 jours après l'envoi. Change le statut quand une entreprise répond.</p>
+      </div>
+      <div id="relances" class="card" hidden>
+        <h2>Messages de relance</h2>
+        <div id="relances-liste"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== ESPACE CONSEILLER ===================== -->
+  <section id="espace-conseiller" hidden>
+    <div class="hero">
+      <h1>Mon groupe en un coup d'œil.</h1>
+      <p>Qui cherche encore une entreprise, qui relance, qui n'a rien envoyé : le référent voit tout sans courir après chaque apprenti.</p>
+    </div>
+    <div class="card">
+      <div class="kpis">
+        <div class="kpi"><b id="c-jeunes">0</b><span>apprentis en recherche</span></div>
+        <div class="kpi"><b id="c-env">0</b><span>candidatures envoyées</span></div>
+        <div class="kpi"><b id="c-rep">0</b><span>réponses</span></div>
+        <div class="kpi accent"><b id="c-rel">0</b><span>à relancer</span></div>
+      </div>
+      <div id="c-alerte" class="alert soft" hidden></div>
+      <div class="table-wrap"><table id="c-table">
+        <thead><tr><th>Apprenti</th><th>Recherche</th><th class="num">Envoyées</th><th class="num">Réponses</th><th class="num">À relancer</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <p class="muted">La première ligne reprend ce que tu as fait dans l'espace apprenti. Les autres lignes sont des exemples fictifs.</p>
+    </div>
+
+    <div class="card" id="vivier" hidden>
+      <h2>Entreprises à solliciter · taxe d'apprentissage et mécénat</h2>
+      <p class="muted" id="v-intro">Chaque entreprise contactée par un jeune connaît déjà l'école. Les plus proches (stage, entretien) sont les plus faciles à convaincre de flécher leur solde sur SOLTéA.</p>
+      <div class="kpis" style="margin-top:14px">
+        <div class="kpi"><b id="v-tot">0</b><span>entreprises contactées</span></div>
+        <div class="kpi"><b id="v-rep">0</b><span>ont répondu</span></div>
+        <div class="kpi"><b id="v-ent">0</b><span>entretien ou stage</span></div>
+        <div class="kpi accent"><b id="v-chaud">0</b><span>à solliciter en priorité</span></div>
+      </div>
+      <div class="table-wrap"><table id="v-table">
+        <thead><tr><th>Entreprise</th><th>Ville</th><th>Lien avec l'école</th><th>Priorité</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <div class="row-btns" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:14px">
+        <button class="btn dark" type="button" id="v-copier">Copier le message pour les entreprises</button>
+        <a class="btn ghost" id="v-page" href="/v2/entreprises/" target="_blank" rel="noopener">Voir la page entreprises</a>
+      </div>
+      <p class="muted">Les entreprises « exemple » sont fictives. Dans le Kit réel, cette liste s'exporte en fin de trimestre pour préparer la campagne SOLTéA.</p>
+    </div>
+  </section>
+</main>
+
+<footer class="foot"><div class="wrap">Kit de prospection · Stephenson Formation · démo · données entreprises : API Recherche d'entreprises (data.gouv.fr)</div></footer>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+window.KIT_CFG = {
+  sites: [["stephenson", "Stephenson Formation · Paris 18e"]],
+  siteNom: "Stephenson Formation (CFA)",
+  metiers: [["commercial", "Commercial · vente B2B, banque, assurance, immobilier", "la négociation et la relation client"]],
+  seulement: ["vente", "commercial", "hotellerie", "administratif", "rh", "automobile", "informatique", "logistique"],
+  metierDefaut: "vente",
+  groupe: [
+    ["Yasmine T. · MCO", "Vente / employé(e) de commerce", 12, 3, 4],
+    ["Kevin L. · MCO", "Vente / employé(e) de commerce", 6, 1, 2],
+    ["Inès R. · NDRC", "Commercial · vente B2B, banque, assurance, immobilier", 9, 2, 3],
+    ["Nathan B. · NDRC", "Commercial · vente B2B, banque, assurance, immobilier", 0, 0, 0],
+    ["Aminata D. · MCO", "Vente / employé(e) de commerce", 15, 4, 1],
+    ["Lucas M. · NDRC", "Commercial · vente B2B, banque, assurance, immobilier", 4, 0, 4]
+  ],
+  ecole: function (p) {
+    var f = (document.getElementById("formation") || {}).value || "MCO";
+    var bts = f === "NDRC" ? "le BTS NDRC (Négociation et digitalisation de la relation client)" : "le BTS MCO (Management commercial opérationnel)";
+    if (p.typ === "alternance") return "Je prépare " + bts + " en alternance à Stephenson Formation, CFA situé dans le 18e arrondissement de Paris, et je cherche l'entreprise qui m'accueillera.";
+    if (p.typ === "stage") return "Je suis en formation pour " + bts + " à Stephenson Formation (Paris 18e).";
+    return "Je me forme à " + bts + " à Stephenson Formation (Paris 18e).";
+  }
+};
+</script>
+<script src="/app.js"></script>
+<script>
+// /v2/ : profil à gauche (style B), carte à droite (style C) ; sur mobile la carte s'ouvre en panneau en descendant
+(function () {
+  var $ = function (s) { return document.querySelector(s); };
+  var src = $("#metier"), q = $("#q-metier"), form = $("#profil"), btn = $("#q-filtres");
+  q.innerHTML = src.innerHTML; q.value = src.value;
+  function resume() {
+    var typ = $("#typ"), site = $("#site");
+    $("#q-resume").textContent = [typ.options[typ.selectedIndex].text, "autour du CFA", "à " + $("#rayon").value + " km"].join(" · ");
+  }
+  function hello() {
+    var prenom = ($("#nom").value || "").trim().split(/\s+/)[0] || "";
+    $("#v2-prenom").textContent = prenom;
+    var n = parseInt($("#nb-envois").textContent, 10) || 0;
+    $("#v2-nb").textContent = n;
+    $("#v2-fill").style.width = Math.min(100, n * 10) + "%";
+  }
+  q.addEventListener("change", function () { src.value = q.value; resume(); form.requestSubmit(); });
+  src.addEventListener("change", function () { q.value = src.value; });
+  ["#typ", "#site", "#rayon"].forEach(function (s) { $(s).addEventListener("input", resume); $(s).addEventListener("change", resume); });
+  $("#nom").addEventListener("input", hello);
+  new MutationObserver(hello).observe($("#nb-envois"), { childList: true, characterData: true, subtree: true });
+  btn.addEventListener("click", function () { form.scrollIntoView({ behavior: "smooth", block: "start" }); setTimeout(function () { $("#site").focus({ preventScroll: true }); }, 400); });
+  form.addEventListener("submit", function () { q.value = src.value; resume(); });
+  // mobile : la carte monte comme un panneau quand on descend
+  var res = $(".results");
+  if ("IntersectionObserver" in window) {
+    res.classList.add("sheet");
+    new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) res.classList.add("open"); }); }, { threshold: 0, rootMargin: "0px 0px -12% 0px" }).observe(res);
+  }
+  // compteurs de la fiche, comme la maquette C
+  function chips() {
+    var n = $("#liste").children.length, env = parseInt($("#nb-envois").textContent, 10) || 0;
+    $("#v2-aecrire").textContent = Math.max(0, n - env);
+    $("#v2-env").textContent = env;
+    $("#v2-km").textContent = "Rayon " + $("#rayon").value + " km";
+  }
+  new MutationObserver(chips).observe($("#liste"), { childList: true });
+  new MutationObserver(chips).observe($("#nb-envois"), { childList: true, characterData: true, subtree: true });
+  // la formation choisie oriente la recherche : MCO → commerce, NDRC → vente B2B
+  $("#formation").addEventListener("change", function () { src.value = this.value === "NDRC" ? "commercial" : "vente"; q.value = src.value; resume(); form.requestSubmit(); });
+  resume(); hello(); chips();
+})();
+</script>
+</body>
+</html>

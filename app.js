@@ -1,13 +1,14 @@
 /* Kit de prospection assistée — démo (Vercel) */
 (function () {
   "use strict";
+  const CFG = window.KIT_CFG || {};
 
-  const SITES = [
+  const SITES = CFG.sites || [
     ["clichy", "Clichy (92)"], ["bagneux", "Bagneux (92)"], ["nanterre", "Nanterre (92)"],
     ["sevran", "Sevran (93)"], ["la-courneuve", "La Courneuve (93)"],
     ["rosny", "Rosny-sous-Bois (93)"], ["pantin", "Pantin (93)"],
   ];
-  const METIERS = [
+  const METIERS = (CFG.metiers || []).concat([
     ["vente", "Vente / employé(e) de commerce", "la vente et le commerce"],
     ["boulangerie", "Boulangerie / pâtisserie", "la boulangerie-pâtisserie"],
     ["restauration", "Cuisine / restauration", "la cuisine et la restauration"],
@@ -32,10 +33,10 @@
     ["sport", "Sport / animation", "le sport et l'animation"],
     ["automobile", "Commerce automobile / pièces", "le commerce automobile"],
     ["rh", "Ressources humaines / recrutement", "les ressources humaines"],
-  ];
+  ]).filter((m, i, a) => !CFG.seulement || CFG.seulement.includes(m[0]));
   const STATUTS = ["Envoyé", "Réponse positive", "Entretien obtenu", "Refus"];
   const RELANCE = 7;
-  const GROUPE = [
+  const GROUPE = CFG.groupe || [
     ["Lucas B.", "Boulangerie / pâtisserie", 12, 3, 4],
     ["Inès K.", "Aide à la personne", 9, 2, 3],
     ["Karim D.", "Mécanique automobile", 3, 0, 3],
@@ -81,7 +82,7 @@
     const lieu = e.ville ? `, à ${e.ville},` : "";
     return `Madame, Monsieur,
 
-Je m'appelle ${p.nom} et je recherche ${article(p.typ)} dans ${domaine(p.metier)}. Votre entreprise, ${e.nom}${lieu} est proche de chez moi et correspond à ce que je souhaite apprendre.
+Je m'appelle ${p.nom} et je recherche ${article(p.typ)} dans ${domaine(p.metier)}.${CFG.ecole ? " " + CFG.ecole(p) : ""} Votre entreprise, ${e.nom}${lieu} est proche de chez moi et correspond à ce que je souhaite apprendre.
 
 Je suis ${f ? "motivée" : "motivé"}, ${f ? "ponctuelle" : "ponctuel"} et ${f ? "prête" : "prêt"} à m'investir. Vous trouverez mon CV en pièce jointe. Je serais ${f ? "heureuse" : "heureux"} de vous rencontrer, ou de vous appeler au moment qui vous convient.
 
@@ -212,7 +213,7 @@ ${p.nom}`;
 
   // ---------- form init ----------
   $("#site").innerHTML = SITES.map(([v, l]) => `<option value="${v}">${l}</option>`).join("");
-  $("#metier").innerHTML = METIERS.map(([v, l]) => `<option value="${v}"${v === "boulangerie" ? " selected" : ""}>${l}</option>`).join("");
+  $("#metier").innerHTML = METIERS.map(([v, l]) => `<option value="${v}"${v === (CFG.metierDefaut || "boulangerie") ? " selected" : ""}>${l}</option>`).join("");
   $("#rayon").addEventListener("input", (e) => { $("#rayon-out").textContent = e.target.value + " km"; });
 
   // ---------- search ----------
@@ -260,8 +261,8 @@ ${p.nom}`;
     layer = L.layerGroup().addTo(map);
     const pts = [];
     if (S.centre) {
-      L.marker([S.centre.lat, S.centre.lon], { icon: L.divIcon({ className: "pin-site", iconSize: [22, 22] }), title: "Site E2C" })
-        .bindTooltip("Site E2C (approx.)").addTo(layer);
+      L.marker([S.centre.lat, S.centre.lon], { icon: L.divIcon({ className: "pin-site", iconSize: [22, 22] }), title: CFG.siteNom || "Site E2C" })
+        .bindTooltip(CFG.siteNom || "Site E2C (approx.)").addTo(layer);
       pts.push([S.centre.lat, S.centre.lon]);
     }
     S.resultats.forEach((e, i) => {
