@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kit de prospection & CRM · Stephenson Formation</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2313294b'/%3E%3Ccircle cx='16' cy='16' r='8' fill='none' stroke='%23e8541c' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='2.5' fill='%23e8541c'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/v2/theme.css">
+<script>
+(function(){try{var q=new URLSearchParams(location.search);if(q.has('soyyo'))localStorage.setItem('va-soy-yo','1');if(q.has('noyo'))localStorage.removeItem('va-soy-yo');}catch(e){}})();
+window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments)};
+window.va('beforeSend',function(ev){try{if(localStorage.getItem('va-soy-yo')){var u=new URL(ev.url);u.searchParams.delete('soyyo');if(u.pathname.indexOf('/_yo')!==0)u.pathname='/_yo'+u.pathname;ev.url=u.toString();}}catch(e){}return ev;});
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
+<style>
+  .hero h1::before { content: "Stephenson Formation · Kit de prospection & CRM"; }
+  .crm-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin: 0 0 14px; }
+  .crm-bar label { font-size: .85rem; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .crm-bar select { min-height: 42px; font-weight: 600; }
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: 0 0 16px; overflow-x: auto; }
+  .tabs button { flex: none; border: 0; background: none; font: inherit; font-weight: 600; color: #4b5563; padding: 12px 14px; border-bottom: 3px solid transparent; cursor: pointer; min-height: 46px; }
+  .tabs button.on { color: var(--navy); border-bottom-color: var(--accent); }
+  .tabs button em { font-style: normal; background: var(--accent); color: #fff; border-radius: 99px; padding: 1px 7px; font-size: .75rem; margin-left: 4px; }
+  .view { display: none; } .view.on { display: block; }
+  .camp { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; justify-content: space-between; background: var(--blue-soft); border-radius: 12px; padding: 12px 16px; margin-bottom: 14px; }
+  .camp b { font-size: 1.1rem; color: var(--navy); } .camp p { margin: 0; color: var(--ink-2); font-size: .9rem; }
+  .todo { display: grid; gap: 8px; }
+  .task { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+  .task .d { font-size: .74rem; font-weight: 700; color: #fff; background: var(--navy); border-radius: 8px; padding: 6px 8px; text-align: center; min-width: 70px; }
+  .task .d.late { background: #b42318; } .task .d.auto { background: var(--accent); } .task .d.cc { background: #6b4fbb; }
+  .task b { display: block; } .task span { color: #4b5563; font-size: .88rem; }
+  .task button { min-height: 40px; }
+  .board { display: grid; gap: 10px; grid-auto-flow: column; grid-auto-columns: minmax(230px, 1fr); overflow-x: auto; padding-bottom: 8px; }
+  .col { background: var(--soft); border-radius: 12px; padding: 10px; min-height: 120px; }
+  .col h3 { margin: 2px 4px 10px; font-size: .88rem; display: flex; justify-content: space-between; }
+  .col h3 span { color: var(--muted); font-weight: 600; }
+  .card { width: 100%; text-align: left; display: block; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 10px 11px; margin-bottom: 8px; cursor: pointer; font: inherit; color: var(--ink); }
+  .card:hover { border-color: var(--navy); }
+  .card b { display: block; font-size: .92rem; } .card small { color: var(--muted); font-size: .8rem; display: block; margin-top: 2px; }
+  .pill { display: inline-block; font-size: .72rem; font-weight: 700; border-radius: 99px; padding: 2px 8px; margin: 6px 4px 0 0; white-space: nowrap; }
+  .pill.reg { background: var(--blue-soft); color: var(--navy-2); } .pill.ex { background: #fff1d6; color: #8a5200; }
+  .st { display: inline-block; font-size: .76rem; font-weight: 700; border-radius: 99px; padding: 3px 9px; white-space: nowrap; }
+  .st.ok { background: #e3f4ea; color: #146c3b; } .st.pr { background: var(--blue-soft); color: var(--navy-2); }
+  .st.vg { background: #fff1d6; color: #8a5200; } .st.al { background: #fde4e1; color: #b42318; }
+  .st.nv { background: var(--soft); color: #4b5563; } .st.ct { background: #efe9fb; color: #5b3fa6; }
+  .search { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; } .search input { flex: 1; min-height: 44px; min-width: 200px; }
+  .search select { min-height: 44px; }
+  .tbl { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; font-size: .9rem; }
+  .tbl th, .tbl td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .tbl th { background: var(--soft); font-weight: 600; }
+  .tbl tr[data-id], .tbl tr[data-ap] { cursor: pointer; } .tbl tr[data-id]:hover td, .tbl tr[data-ap]:hover td { background: #fafbfc; }
+  .tbl td.n { text-align: right; white-space: nowrap; }
+  .ct6 { display: inline-flex; gap: 3px; } .ct6 i { width: 14px; height: 14px; border-radius: 4px; display: block; background: var(--soft); }
+  .ct6 i.m { background: #146c3b; } .ct6 i.a { background: #5fb784; } .ct6 i.e { background: #f2b544; } .ct6 i.n { background: #d64b3a; }
+  .wrapx { overflow-x: auto; }
+  .g2 { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 900px) { .g2 { grid-template-columns: 1fr 1fr; } }
+  .box { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .box h2 { margin: 0 0 10px; font-size: 1rem; }
+  .bars { display: grid; gap: 10px; }
+  .barrow { display: grid; grid-template-columns: 80px minmax(0, 1fr) 40px; gap: 10px; align-items: center; font-size: .88rem; }
+  .track { height: 14px; background: var(--soft); border-radius: 99px; overflow: hidden; display: flex; }
+  .track i { display: block; height: 14px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: .8rem; color: #4b5563; margin: 4px 0 10px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+  .funnel { display: grid; gap: 6px; }
+  .funnel div { display: grid; grid-template-columns: 150px minmax(0, 1fr) 40px; gap: 10px; align-items: center; font-size: .9rem; }
+  .funnel span.f { height: 22px; background: var(--navy); border-radius: 6px; display: block; min-width: 4px; }
+  .drawer { position: fixed; inset: 0; background: rgba(17,24,39,.4); z-index: 1500; display: none; justify-content: flex-end; }
+  .drawer.on { display: flex; }
+  .sheet { background: #fff; width: min(540px, 100%); height: 100%; overflow-y: auto; padding: 18px 18px 30px; box-sizing: border-box; }
+  .sheet .x { float: right; border: 0; background: var(--soft); border-radius: 50%; width: 36px; height: 36px; font-size: 1.2rem; cursor: pointer; }
+  .sheet h2 { margin: 0 0 2px; font-size: 1.25rem; padding-right: 44px; }
+  .sheet .sub { color: var(--muted); font-size: .88rem; }
+  .sec { margin-top: 16px; } .sec h3 { margin: 0 0 8px; font-size: .82rem; color: var(--navy); text-transform: uppercase; letter-spacing: .04em; }
+  .steps2 { display: flex; flex-wrap: wrap; gap: 6px; }
+  .steps2 button { border: 1px solid var(--line); background: #fff; border-radius: 99px; padding: 6px 11px; font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer; color: #4b5563; min-height: 36px; }
+  .steps2 button.on { background: var(--navy); color: #fff; border-color: var(--navy); }
+  .kv { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 6px 10px; font-size: .9rem; margin: 0; }
+  .kv dt { color: var(--muted); } .kv dd { margin: 0; }
+  .hist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .hist li { font-size: .88rem; border-left: 3px solid var(--line); padding: 2px 0 2px 10px; }
+  .hist li time { color: var(--muted); font-size: .8rem; display: block; }
+  .sheet textarea { width: 100%; box-sizing: border-box; min-height: 150px; font: inherit; font-size: .88rem; padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
+  .sheet input, .sheet select { box-sizing: border-box; min-width: 0; min-height: 42px; width: 100%; }
+  .fld { font-size: .82rem; color: var(--muted); display: grid; gap: 4px; }
+  .btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .hint { font-size: .84rem; color: var(--muted); margin: 10px 0 0; }
+  .reset { background: none; border: 0; color: var(--muted); text-decoration: underline; cursor: pointer; font: inherit; font-size: .84rem; }
+  .res { display: grid; gap: 8px; }
+  .ent { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+  .ent b { display: block; } .ent span { color: #4b5563; font-size: .85rem; }
+  .match { font-size: .8rem; color: var(--navy-2); margin-top: 4px; display: block; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <a class="brand" href="/v2/stephenson/" aria-label="Kit de prospection · Stephenson Formation">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="currentColor"/><circle cx="16" cy="16" r="8" fill="none" stroke="#e8541c" stroke-width="3"/><circle cx="16" cy="16" r="2.5" fill="#e8541c"/></svg>
+      <span>Kit de prospection · Stephenson</span>
+    </a>
+  </div>
+</header>
+
+<main class="wrap">
+  <p class="ribbon"><strong>Démo.</strong> Apprentis : extrait des conseils de positionnement MCO 16, MCO 18 et NDRC 16 (prénom + initiale seulement). Entreprises marquées « exemple » et liens apprenti ↔ entreprise : fictifs. Entreprises « à prospecter » : réelles (registre public), sans historique. Rien n'est envoyé ; vos modifications restent dans ce navigateur.</p>
+
+  <div class="hero">
+    <h1>Du conseil de classe à l'entreprise : qui appeler cette semaine.</h1>
+    <p>Les résultats du conseil de positionnement deviennent des actions : prévenir un tuteur, vérifier un contrat, trouver une entreprise pour un apprenti arrivé tard, et faire de chaque entreprise un partenaire qui recrute chaque année.</p>
+  </div>
+
+  <div class="crm-bar">
+    <label>Vue <select id="vue" aria-label="Groupe">
+      <option value="tous">Relations entreprises · tous les groupes</option>
+      <option value="MCO 16">Référent · BTS MCO 16</option>
+      <option value="MCO 18">Référent · BTS MCO 18</option>
+      <option value="NDRC 16">Référent · BTS NDRC 16</option>
+    </select></label>
+    <button class="reset" type="button" id="reset">Réinitialiser la démo</button>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><b id="k-app">0</b><span>apprentis suivis</span></div>
+    <div class="kpi"><b id="k-vig">0</b><span>à surveiller après le conseil</span></div>
+    <div class="kpi"><b id="k-ctr">0</b><span>contrats à vérifier</span></div>
+    <div class="kpi accent"><b id="k-ent">0</b><span>entreprises qui accueillent</span></div>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button type="button" class="on" data-v="semaine">Cette semaine <em id="n-sem">0</em></button>
+    <button type="button" data-v="apprentis">Apprentis</button>
+    <button type="button" data-v="etapes">Entreprises</button>
+    <button type="button" data-v="prospect">Prospecter</button>
+    <button type="button" data-v="bord">Tableau de bord</button>
+  </div>
+
+  <section class="view on" id="v-semaine">
+    <div class="camp"><div><b>Après le conseil de positionnement</b><p>Chaque alerte du conseil (absences, jamais vu, arrivée tardive) devient une tâche avec l'entreprise concernée.</p></div></div>
+    <div class="todo" id="todo"></div>
+  </section>
+
+  <section class="view" id="v-apprentis">
+    <div class="search">
+      <input type="search" id="qa" placeholder="Rechercher un apprenti, une entreprise…" aria-label="Rechercher un apprenti">
+      <select id="fa" aria-label="Filtrer par statut"><option value="">Tous les statuts</option></select>
+    </div>
+    <div class="wrapx"><table class="tbl"><thead><tr><th>Apprenti</th><th>Groupe</th><th>Conseil</th><th>Compétences</th><th class="n">Abs. (h)</th><th>Entreprise</th></tr></thead><tbody id="rowsA"></tbody></table></div>
+    <p class="hint">Compétences : la 1re matière évaluée par apprenti dans la trame (vert foncé = maîtrisé, vert = en autonomie, jaune = partiellement acquis, rouge = non acquis, gris = non évalué). Absences : renseignées pour MCO 16.</p>
+  </section>
+
+  <section class="view" id="v-etapes">
+    <div class="board" id="board"></div>
+    <p class="hint">Cliquez sur une carte pour ouvrir la fiche : étape, apprentis accueillis, tuteur, intérêt pour la formation continue, notes.</p>
+  </section>
+
+  <section class="view" id="v-prospect">
+    <div class="box">
+      <h2>Trouver des entreprises autour du CFA (48 rue Stephenson, Paris 18e)</h2>
+      <div class="search" style="margin-top:8px">
+        <select id="pf" aria-label="Filière"><option value="vente">BTS MCO · commerce, magasins</option><option value="commercial">BTS NDRC · vente B2B, banque, assurance, immobilier</option></select>
+        <select id="pr" aria-label="Distance"><option value="1">1 km</option><option value="2" selected>2 km</option><option value="4">4 km</option><option value="8">8 km</option></select>
+        <select id="pa" aria-label="Pour quel apprenti"><option value="">Pour le CFA (offres d'alternance)</option></select>
+        <button class="btn primary" type="button" id="go">Chercher</button>
+      </div>
+      <p class="hint" id="pmsg">Registre public des entreprises (data.gouv.fr), établissements actifs avec salariés.</p>
+    </div>
+    <div class="res" id="pres" style="margin-top:12px"></div>
+  </section>
+
+  <section class="view" id="v-bord">
+    <div class="g2">
+      <div class="box"><h2>Conseil de positionnement, par groupe</h2>
+        <div class="legend" id="leg"></div>
+        <div class="bars" id="bars"></div></div>
+      <div class="box"><h2>De la prospection au partenariat</h2><div class="funnel" id="funnel"></div>
+        <p class="hint">Objectif : chaque entreprise qui accueille un apprenti cette année recrute à nouveau à la rentrée suivante.</p></div>
+    </div>
+    <div class="btns" style="margin-top:12px"><button class="btn ghost" type="button" id="export">Exporter les entreprises (CSV)</button></div>
+  </section>
+</main>
+
+<div class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="Fiche"><div class="sheet" id="sheet"></div></div>
+<footer class="foot"><div class="wrap">Kit de prospection · Stephenson Formation · CRM entreprises & suivi des apprentis (démo) · Diego Jiménez</div></footer>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (s) { return document.querySelector(s); };
+  var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
+  var J = 864e5, AUJ = new Date(); AUJ.setHours(0, 0, 0, 0);
+  var jour = function (n) { return new Date(AUJ.getTime() + n * J).toISOString().slice(0, 10); };
+  var dfr = function (s) { if (!s) return "—"; return new Date(s + "T00:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "short" }); };
+
+  // ---------- apprentis (extrait des trames du conseil de positionnement) ----------
+  // [prénom, initiale, compétences CT1–CT6 (m/a/e/n/_), absences en h ou null, signal]
+  // signal : J = jamais vu en cours, R = arrivée récente / rentrée décalée, N = non évaluable, X = absences sans nouvelles
+  var GROUPES = {
+    "MCO 16": { mat: "ADOC", l: [
+      ["Hedi", "B", "maeea_", 13.66], ["Alexis", "D", "aaeee_", 0], ["Raphaël", "D", "aaaea_", 7], ["Ruchama", "D", "aaaee_", 0],
+      ["Abubacarr", "D", "aaeea_", 0], ["Nawfel", "E", "aaeaa_", 7.33], ["Rachel", "F", "aeaae_", 2], ["Lateesha", "H", "aaaea_", 0],
+      ["Roberto", "H", "aeaea_", 1.41], ["Abisan", "J", "naene_", 12.5], ["Ronaldo Junior", "K", "aaeee_", 6.75], ["Thea", "K", "eaaee_", 0],
+      ["Laurendia", "L", "aaaea_", 0], ["Lemison", "M", "aneee_", 6.08], ["Adam", "M", "aaaea_", 32], ["Pavel", "S", "", 0.16],
+      ["Mohamed-Shaker", "S", "", 81.5], ["Gaston", "S", "", 0], ["Gloria", "V", "", 0], ["Célina", "W", "", 0]] },
+    "MCO 18": { mat: "DCRCVC", l: [
+      ["Koko", "A", "______", null, "R"], ["Mehdi", "B", "mm_m__", null], ["Richy", "B", "ee_e__", null], ["Sarata", "C", "en_e__", null],
+      ["Tiguidanke", "D", "ee_e__", null], ["Sarah", "H", "______", null, "P"], ["Maroufou", "J", "aa_e__", null], ["Arthur", "L", "aa_a__", null],
+      ["Lola", "L", "aa_a__", null], ["Ilda", "M", "______", null, "J"], ["Tchounga", "M", "ea_a__", null], ["Dahmane", "M", "______", null, "J"],
+      ["Jean-Paul", "M", "______", null, "R"], ["Lilian", "N", "ea_a__", null], ["Cissé", "S", "en_e__", null], ["Exaucé Junior", "S", "______", null, "J"],
+      ["Sophie", "S", "______", null, "R"], ["Aboubacar", "S", "en_a__", null], ["Maïmouna", "S", "", null]] },
+    "NDRC 16": { mat: "E6 Relation client", l: [
+      ["Izil", "A", "aaae_a", null], ["Cécile", "A", "______", null, "N"], ["Félix", "B", "eaae_a", null], ["Djéné", "B", "en____", null],
+      ["Césarine", "C", "aaae_a", null], ["Amadou Lamine", "C", "en____", null], ["Kaito", "C", "aeaa_a", null], ["Rachid", "C", "______", null, "N"],
+      ["Aïssatou", "D", "n_____", null, "X"], ["Paul-Samuel", "D", "mamm_a", null], ["Lewis", "D", "_a_a__", null, "R"], ["Ludmila", "E", "aeae_e", null],
+      ["Rayan", "G", "mmmm_m", null]] }
+  };
+  var STATUTS = {
+    al: ["al", "Alerte"], vg: ["vg", "Vigilance"], ct: ["ct", "Contrat à vérifier"], ar: ["ct", "Arrivée récente"],
+    nv: ["nv", "Non évalué"], ok: ["ok", "Solide"], pr: ["pr", "En progression"], ac: ["nv", "À compléter"]
+  };
+  var VAL = { m: 4, a: 3, e: 2, n: 1 };
+  function statut(a) {
+    var c = (a.ct || "").replace(/_/g, ""), s = a.sig;
+    if (s === "J") return "ct"; if (s === "R") return "ar"; if (s === "N") return "nv"; if (s === "X") return "al";
+    if (a.abs != null && a.abs >= 30) return "al";
+    if (s === "P") return "pr";
+    if (!c) return "ac";
+    if (c.indexOf("n") >= 0 || (a.abs != null && a.abs >= 10)) return "vg";
+    var t = 0; for (var i = 0; i < c.length; i++) t += VAL[c[i]];
+    return t / c.length >= 2.8 ? "ok" : "pr";
+  }
+  var APP = [];
+  Object.keys(GROUPES).forEach(function (g) {
+    GROUPES[g].l.forEach(function (r, i) {
+      var a = { id: g.replace(/\s/g, "") + "-" + i, prenom: r[0], ini: r[1], nom: r[0] + " " + r[1] + ".", groupe: g, mat: GROUPES[g].mat, ct: r[2], abs: r[3], sig: r[4] || "" };
+      a.st = statut(a); APP.push(a);
+    });
+  });
+  function motif(a) {
+    return { al: a.sig === "X" ? "absences et aucune nouvelle" : "absences très élevées (" + fmtH(a.abs) + ")", vg: (a.abs >= 10 ? "absences (" + fmtH(a.abs) + ")" : "compétences non acquises"),
+      ct: "jamais vu en cours", ar: "arrivé(e) en cours d'année", nv: "non évaluable", ok: "bon démarrage", pr: "en progression", ac: "trame à compléter" }[a.st];
+  }
+  function fmtH(h) { return h == null ? "—" : String(h).replace(".", ",") + " h"; }
+
+  // ---------- entreprises d'exemple (fictives) ----------
+  var ETAPES = [
+    ["prospect", "À prospecter"], ["contactee", "Contactée"], ["offre", "Offre d'alternance"],
+    ["accueille", "Accueille un apprenti"], ["partenaire", "Partenaire (recrute chaque année)"]
+  ];
+  var NOM_ETAPE = {}; ETAPES.forEach(function (e) { NOM_ETAPE[e[0]] = e[1]; });
+  var BASE = [
+    { id: "e1", nom: "Supérette Marx-Dormoy (exemple)", ville: "Paris 18e", secteur: "Commerce de proximité", effectif: "10 à 19 salariés", etape: "partenaire", tuteur: "Gérant", fc: false, apps: ["MCO16-0", "MCO16-14"], next: [2, "Point avec le tuteur sur les absences d'Adam M."] },
+    { id: "e2", nom: "Boutique prêt-à-porter Barbès (exemple)", ville: "Paris 18e", secteur: "Habillement", effectif: "6 à 9 salariés", etape: "accueille", tuteur: "Responsable de boutique", fc: true, apps: ["MCO16-2", "MCO16-12"], next: [5, "Envoyer le bilan du conseil (bon démarrage)"] },
+    { id: "e3", nom: "Magasin de sport Ordener (exemple)", ville: "Paris 18e", secteur: "Articles de sport", effectif: "20 à 49 salariés", etape: "accueille", tuteur: "Directeur de magasin", fc: false, apps: ["MCO16-16", "MCO18-7", "MCO18-8"], next: [-1, "Urgent : 81,5 h d'absence pour Mohamed-Shaker S."] },
+    { id: "e4", nom: "Agence immobilière Simplon (exemple)", ville: "Paris 18e", secteur: "Immobilier", effectif: "6 à 9 salariés", etape: "accueille", tuteur: "Directrice d'agence", fc: false, apps: ["NDRC16-9", "NDRC16-12"], next: [7, "Proposer une 2e alternance NDRC à la rentrée"] },
+    { id: "e5", nom: "Agence bancaire La Chapelle (exemple)", ville: "Paris 18e", secteur: "Banque", effectif: "10 à 19 salariés", etape: "partenaire", tuteur: "Directeur d'agence", fc: true, apps: ["NDRC16-0", "NDRC16-8"], next: [1, "Aïssatou D. : absences, aucune nouvelle — prévenir le tuteur"] },
+    { id: "e6", nom: "Société de services B2B Clignancourt (exemple)", ville: "Paris 18e", secteur: "Services aux entreprises", effectif: "50 à 99 salariés", etape: "offre", tuteur: "Responsable commercial", fc: true, apps: [], next: [3, "2 offres NDRC : proposer Lewis D. et un candidat"] },
+    { id: "e7", nom: "Opticien Château Rouge (exemple)", ville: "Paris 18e", secteur: "Optique", effectif: "3 à 5 salariés", etape: "contactee", tuteur: "Opticienne gérante", fc: false, apps: [], next: [4, "Relancer : alternance MCO pour une rentrée décalée"] },
+    { id: "e8", nom: "Centre d'appels Rosa Parks (exemple)", ville: "Paris 19e", secteur: "Relation client à distance", effectif: "100 à 199 salariés", etape: "accueille", tuteur: "Superviseure", fc: true, apps: ["NDRC16-3", "NDRC16-5", "MCO18-17"], next: [0, "Assiduité de 3 apprentis : appel avec la superviseure"] },
+    { id: "e9", nom: "Supermarché Jules Joffrin (exemple)", ville: "Paris 18e", secteur: "Grande distribution", effectif: "50 à 99 salariés", etape: "partenaire", tuteur: "Manager de rayon", fc: false, apps: ["MCO16-9", "MCO16-13", "MCO18-1", "MCO18-3"], next: [6, "Préparer les offres de la rentrée 2027"] }
+  ];
+  var KEY = "kit-stephenson-v1", store = {};
+  try { store = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { store = {}; }
+  var save = function () { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} };
+  if (!store.ajout) store.ajout = [];
+  var vue = "tous", ouverte = null, trouves = [];
+
+  function ent(b) {
+    var m = (store.e && store.e[b.id]) || {}, o = Object.assign({}, b, m);
+    o.nextDate = m.nextDate || (b.next ? jour(b.next[0]) : "");
+    o.nextTxt = m.nextTxt != null ? m.nextTxt : (b.next ? b.next[1] : "");
+    o.notes = m.notes || [];
+    return o;
+  }
+  function maj(id, k, v) { store.e = store.e || {}; store.e[id] = store.e[id] || {}; store.e[id][k] = v; save(); }
+  function apById(id) { return APP.filter(function (a) { return a.id === id; })[0]; }
+  function apps() { return APP.filter(function (a) { return vue === "tous" || a.groupe === vue; }); }
+  function toutes() {
+    return BASE.concat(store.ajout).map(ent).filter(function (e) {
+      if (vue === "tous" || e.etape === "prospect" || !e.apps.length) return true;
+      return e.apps.some(function (id) { var a = apById(id); return a && a.groupe === vue; });
+    });
+  }
+  function entDe(a) { return BASE.concat(store.ajout).map(ent).filter(function (e) { return e.apps.indexOf(a.id) >= 0; })[0]; }
+  function toast(t) { var el = $("#toast"); el.textContent = t; el.classList.add("on"); clearTimeout(toast._t); toast._t = setTimeout(function () { el.classList.remove("on"); }, 2600); }
+
+  // ---------- tâches ----------
+  function taches() {
+    var t = [], lim = jour(7), vus = {};
+    apps().forEach(function (a) {
+      if (["al", "vg", "ct", "ar", "nv"].indexOf(a.st) < 0) return;
+      var e = entDe(a), fait = store.fait && store.fait[a.id];
+      if (fait) return;
+      var txt = e ? (a.st === "al" || a.st === "vg" ? "Prévenir le tuteur (" + e.nom.replace(/ \(exemple\)$/, "") + ") : " + motif(a) : "Point avec le tuteur : " + motif(a))
+        : (a.st === "ct" ? "Vérifier le contrat d'apprentissage : " + motif(a) : a.st === "ar" ? "Vérifier l'entreprise d'accueil : " + motif(a) : "Faire le point : " + motif(a));
+      t.push({ ap: a, e: e, date: jour(a.st === "al" ? 0 : a.st === "ct" ? 1 : 3), txt: txt, cc: true });
+      if (e) vus[e.id] = 1;
+    });
+    toutes().forEach(function (e) { if (e.etape !== "prospect" && e.nextDate && e.nextDate <= lim && !vus[e.id]) t.push({ e: e, date: e.nextDate, txt: e.nextTxt }); });
+    var top = trouves.filter(function (x) { return !dejaCRM(x.siret); })[0];
+    if (top) t.push({ reg: top, date: jour(0), txt: "Kit : entreprise proche du CFA à contacter (" + top.distance + " km · " + (top.effectif || "salariés") + ")", auto: true });
+    return t.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+  }
+
+  // ---------- rendu ----------
+  function render() {
+    var A = apps(), list = toutes();
+    $("#k-app").textContent = A.length;
+    $("#k-vig").textContent = A.filter(function (a) { return a.st === "al" || a.st === "vg"; }).length;
+    $("#k-ctr").textContent = A.filter(function (a) { return a.st === "ct" || a.st === "ar"; }).length;
+    $("#k-ent").textContent = list.filter(function (e) { return e.etape === "accueille" || e.etape === "partenaire"; }).length;
+    var t = taches(); $("#n-sem").textContent = t.length;
+    $("#todo").innerHTML = t.map(function (x) {
+      var late = x.date < jour(0), lab = x.auto ? "Kit" : x.cc ? "Conseil" : late ? "En retard" : dfr(x.date);
+      var titre = x.ap ? x.ap.nom + " · " + x.ap.groupe : x.reg ? x.reg.nom : x.e.nom;
+      var btn = x.ap ? '<button class="btn ghost" type="button" data-ap="' + x.ap.id + '">Ouvrir</button>' : x.reg ? '<button class="btn ghost" type="button" data-add="' + esc(x.reg.siret) + '">Ajouter</button>' : '<button class="btn ghost" type="button" data-open="' + esc(x.e.id) + '">Ouvrir</button>';
+      return '<div class="task"><span class="d' + (x.auto ? " auto" : x.cc ? " cc" : late ? " late" : "") + '">' + lab + '</span><div><b>' + esc(titre) + '</b><span>' + esc(x.txt) + '</span></div>' + btn + '</div>';
+    }).join("") || '<p class="hint">Rien à faire cette semaine.</p>';
+    // apprentis
+    var q = ($("#qa").value || "").toLowerCase(), f = $("#fa").value;
+    $("#rowsA").innerHTML = A.filter(function (a) {
+      var e = entDe(a); return (!f || a.st === f) && (!q || (a.nom + " " + a.groupe + " " + (e ? e.nom : "")).toLowerCase().indexOf(q) >= 0);
+    }).map(function (a) {
+      var e = entDe(a), s = STATUTS[a.st];
+      return '<tr data-ap="' + a.id + '"><td><b>' + esc(a.nom) + '</b></td><td>' + a.groupe + '</td><td><span class="st ' + s[0] + '">' + s[1] + '</span></td><td>' + ct6(a.ct) + '</td><td class="n">' + (a.abs == null ? "—" : String(a.abs).replace(".", ",")) + '</td><td>' + (e ? esc(e.nom.replace(/ \(exemple\)$/, "")) : (a.st === "ct" || a.st === "ar" ? '<span class="st ct">à vérifier</span>' : "—")) + '</td></tr>';
+    }).join("");
+    // étapes
+    $("#board").innerHTML = ETAPES.map(function (et) {
+      var c = list.filter(function (e) { return e.etape === et[0]; });
+      return '<div class="col"><h3>' + et[1] + '<span>' + c.length + '</span></h3>' + c.map(function (e) {
+        var n = e.apps.length;
+        return '<button class="card" type="button" data-open="' + esc(e.id) + '"><b>' + esc(e.nom) + '</b><small>' + esc(e.ville) + " · " + esc(e.effectif || "") + '</small>' +
+          (n ? '<span class="pill reg">' + n + ' apprenti' + (n > 1 ? "s" : "") + '</span>' : "") + (e.fc ? '<span class="pill ex">Formation continue</span>' : "") + (e.reg ? '<span class="pill reg">Registre</span>' : "") + '</button>';
+      }).join("") + '</div>';
+    }).join("");
+    bord(A, list);
+  }
+  function ct6(c) { if (!c) return '<span class="hint" style="margin:0">—</span>'; return '<span class="ct6" aria-label="' + esc(c) + '">' + c.split("").map(function (x) { return '<i class="' + (x === "_" ? "" : x) + '"></i>'; }).join("") + '</span>'; }
+  function bord(A, list) {
+    var ordre = ["ok", "pr", "vg", "al", "ct", "ar", "nv", "ac"], coul = { ok: "#146c3b", pr: "#5b8bd6", vg: "#f2b544", al: "#d64b3a", ct: "#8b6fd6", ar: "#c4b5ec", nv: "#c9ced6", ac: "#e5e7eb" };
+    $("#leg").innerHTML = ordre.map(function (k) { return '<span><i style="background:' + coul[k] + '"></i>' + STATUTS[k][1] + '</span>'; }).join("");
+    $("#bars").innerHTML = Object.keys(GROUPES).filter(function (g) { return vue === "tous" || vue === g; }).map(function (g) {
+      var l = APP.filter(function (a) { return a.groupe === g; });
+      return '<div class="barrow"><span>' + g + '</span><div class="track">' + ordre.map(function (k) { var n = l.filter(function (a) { return a.st === k; }).length; return n ? '<i title="' + STATUTS[k][1] + ' : ' + n + '" style="width:' + (n / l.length * 100) + '%;background:' + coul[k] + '"></i>' : ""; }).join("") + '</div><b style="text-align:right">' + l.length + '</b></div>';
+    }).join("");
+    var tot = list.length || 1, idx = {}; ETAPES.forEach(function (e, i) { idx[e[0]] = i; });
+    $("#funnel").innerHTML = ETAPES.map(function (et, i) {
+      var n = list.filter(function (e) { return idx[e.etape] >= i; }).length;
+      return '<div><span>' + et[1] + '</span><span class="f" style="width:' + (n / tot * 100) + '%"></span><b>' + n + '</b></div>';
+    }).join("");
+  }
+
+  // ---------- fiches ----------
+  function message(a, e) {
+    var pos = a.st === "ok" ? "un très bon démarrage" : a.st === "pr" ? "un démarrage encourageant, avec des acquis à consolider" : "un démarrage qui demande un suivi rapproché";
+    var abs = a.abs != null && a.abs >= 10 ? "\n\nNous relevons " + fmtH(a.abs) + " d'absence au CFA depuis la rentrée ; pouvons-nous en parler pour l'aider à retrouver de la régularité ?" : (a.st === "al" ? "\n\nNous n'avons plus de nouvelles depuis plusieurs séances ; avez-vous les mêmes constats en entreprise ?" : "");
+    return "Bonjour,\n\nLe conseil de positionnement du BTS " + a.groupe.replace(/ \d+$/, "") + " (groupe " + a.groupe + ") s'est tenu. Pour " + a.prenom + ", l'équipe pédagogique observe " + pos + "." + abs + "\n\nJe vous propose un court échange téléphonique cette semaine pour croiser nos regards et fixer ensemble les prochains objectifs.\n\nBien cordialement,\n\nStephenson Formation · relations entreprises";
+  }
+  function ficheAp(id) {
+    var a = apById(id); if (!a) return; var e = entDe(a), s = STATUTS[a.st]; ouverte = null;
+    $("#sheet").innerHTML = '<button class="x" type="button" aria-label="Fermer">×</button><h2>' + esc(a.nom) + '</h2><div class="sub">BTS ' + a.groupe + " · apprenti(e)</div>" +
+      '<div class="sec"><h3>Conseil de positionnement</h3><dl class="kv"><dt>Statut</dt><dd><span class="st ' + s[0] + '">' + s[1] + '</span> ' + esc(motif(a)) + '</dd><dt>Compétences</dt><dd>' + ct6(a.ct) + ' <small class="hint">(' + esc(a.mat) + ', CT1→CT6)</small></dd><dt>Absences</dt><dd>' + fmtH(a.abs) + '</dd></dl></div>' +
+      '<div class="sec"><h3>Entreprise</h3>' + (e ? '<dl class="kv"><dt>Entreprise</dt><dd><a href="#" data-open="' + e.id + '">' + esc(e.nom) + '</a></dd><dt>Tuteur</dt><dd>' + esc(e.tuteur) + '</dd></dl>' +
+        '<div class="sec"><h3>Message au tuteur (brouillon)</h3><textarea id="msg">' + esc(message(a, e)) + '</textarea><div class="btns"><button class="btn primary" type="button" data-a="mail">Ouvrir dans ma messagerie</button><button class="btn ghost" type="button" data-a="fait" data-id="' + a.id + '">Marquer comme fait</button></div><p class="hint">Rien ne part sans vous : le message s\'ouvre dans votre messagerie, à relire.</p></div>'
+        : '<p class="hint" style="margin:0 0 8px">Aucune entreprise reliée dans la démo. ' + (a.st === "ct" || a.st === "ar" ? "Contrat à vérifier dans Net-YParéo ; si l'apprenti n'a pas encore d'entreprise, le Kit cherche des entreprises proches du CFA pour lui." : "") + '</p><div class="btns"><button class="btn primary" type="button" data-a="chercher" data-id="' + a.id + '">Chercher des entreprises pour ' + esc(a.prenom) + '</button><button class="btn ghost" type="button" data-a="fait" data-id="' + a.id + '">Marquer comme fait</button></div>') + '</div>';
+    $("#drawer").classList.add("on");
+  }
+  function fiche(id) {
+    var e = BASE.concat(store.ajout).map(ent).filter(function (x) { return x.id === id; })[0]; if (!e) return; ouverte = id;
+    var lis = e.apps.map(function (i) { var a = apById(i); if (!a) return ""; var s = STATUTS[a.st]; return '<li><a href="#" data-ap="' + a.id + '"><b>' + esc(a.nom) + '</b></a> · ' + a.groupe + ' <span class="st ' + s[0] + '">' + s[1] + '</span></li>'; }).join("");
+    $("#sheet").innerHTML = '<button class="x" type="button" aria-label="Fermer">×</button><h2>' + esc(e.nom) + '</h2><div class="sub">' + esc(e.ville) + " · " + esc(e.secteur || "") + " · " + esc(e.effectif || "") + (e.distance != null ? " · " + e.distance + " km du CFA" : "") + "</div>" +
+      '<div class="sec"><h3>Étape</h3><div class="steps2">' + ETAPES.map(function (et) { return '<button type="button" data-step="' + et[0] + '" class="' + (e.etape === et[0] ? "on" : "") + '">' + et[1] + "</button>"; }).join("") + "</div></div>" +
+      '<div class="sec"><h3>Apprentis accueillis</h3>' + (lis ? '<ul class="hist">' + lis + "</ul>" : '<p class="hint" style="margin:0">Aucun pour l\'instant.</p>') + "</div>" +
+      '<div class="sec"><h3>Suivi</h3><div class="g2" style="gap:8px"><label class="fld">Tuteur / contact<input data-f="tuteur" value="' + esc(e.tuteur || "") + '"></label><label class="fld">Prochaine action le<input type="date" data-f="nextDate" value="' + esc(e.nextDate) + '"></label></div>' +
+      '<label class="fld" style="margin-top:8px">Prochaine action<input data-f="nextTxt" value="' + esc(e.nextTxt) + '"></label>' +
+      '<label class="check" style="margin-top:10px"><input type="checkbox" data-f="fc"' + (e.fc ? " checked" : "") + '> Intéressée par la formation continue (salariés)</label></div>' +
+      '<div class="sec"><h3>Notes</h3><ul class="hist">' + e.notes.map(function (n) { return "<li>" + esc(n[1]) + "<time>" + dfr(n[0]) + "</time></li>"; }).join("") + '</ul><div class="search" style="margin-top:8px"><input id="note" placeholder="Ajouter une note…"><button class="btn ghost" type="button" data-a="note">Ajouter</button></div></div>' +
+      '<div class="btns"><button class="btn primary" type="button" data-a="offre">Proposer un partenariat (brouillon)</button></div>';
+    $("#drawer").classList.add("on");
+  }
+  function fermer() { $("#drawer").classList.remove("on"); ouverte = null; render(); }
+
+  // ---------- prospection (registre public) ----------
+  function dejaCRM(siret) { return store.ajout.some(function (x) { return x.id === siret; }); }
+  function chercher() {
+    var m = $("#pf").value, r = $("#pr").value, pour = $("#pa").value, a = pour && apById(pour);
+    $("#pmsg").textContent = "Recherche dans le registre public…"; $("#pres").innerHTML = "";
+    fetch("/api/entreprises?site=stephenson&metier=" + m + "&rayon=" + r).then(function (x) { return x.json(); }).then(function (j) {
+      if (j.error) throw new Error(j.error);
+      trouves = (j.entreprises || []).map(function (x) { x.filiere = m; return x; });
+      $("#pmsg").textContent = trouves.length + " établissements actifs à moins de " + r + " km" + (a ? ", pour " + a.nom : "") + ".";
+      $("#pres").innerHTML = trouves.map(function (x) {
+        var deja = dejaCRM(x.siret);
+        return '<div class="ent"><div><b>' + esc(x.nom) + '</b><span>' + esc(x.adresse || x.ville) + " · " + x.distance + " km · " + esc(x.effectif || "") + '</span>' + (a ? '<span class="match">Message prêt pour ' + esc(a.prenom) + " (" + a.groupe + ")</span>" : "") + '</div><button class="btn ' + (deja ? "ghost" : "primary") + '" type="button" data-add="' + esc(x.siret) + '"' + (deja ? " disabled" : "") + ">" + (deja ? "Dans le CRM" : "Ajouter au CRM") + "</button></div>";
+      }).join("") || '<p class="hint">Aucun résultat : élargissez la distance.</p>';
+      render();
+    }).catch(function (e) { $("#pmsg").textContent = "Le registre ne répond pas pour le moment. Réessayez dans un instant."; });
+  }
+  function ajouter(siret) {
+    var x = trouves.filter(function (t) { return t.siret === siret; })[0]; if (!x || dejaCRM(siret)) return;
+    var pour = $("#pa").value;
+    store.ajout.push({ id: x.siret, nom: x.nom, ville: x.ville, secteur: x.filiere === "vente" ? "Commerce (BTS MCO)" : "Vente B2B (BTS NDRC)", effectif: x.effectif, distance: x.distance, etape: "contactee", tuteur: "", fc: false, apps: [], reg: true,
+      next: [3, pour ? "Relancer : candidature de " + apById(pour).nom : "Relancer : offre d'alternance pour la rentrée"] });
+    save(); toast(x.nom + " ajoutée au CRM (étape « Contactée »)."); chercher();
+  }
+
+  // ---------- événements ----------
+  document.addEventListener("click", function (ev) {
+    var t = ev.target;
+    if (t.closest(".x") || t === $("#drawer")) return fermer();
+    var tb = t.closest(".tabs button"); if (tb) { document.querySelectorAll(".tabs button").forEach(function (b) { b.classList.toggle("on", b === tb); }); document.querySelectorAll(".view").forEach(function (v) { v.classList.toggle("on", v.id === "v-" + tb.dataset.v); }); return; }
+    var ad = t.closest("[data-add]"); if (ad) return ajouter(ad.getAttribute("data-add"));
+    var ap = t.closest("[data-ap]"); if (ap) { ev.preventDefault(); return ficheAp(ap.getAttribute("data-ap")); }
+    var op = t.closest("[data-open]"); if (op) { ev.preventDefault(); return fiche(op.getAttribute("data-open")); }
+    var st = t.closest("[data-step]"); if (st && ouverte) { maj(ouverte, "etape", st.dataset.step); fiche(ouverte); toast("Étape mise à jour."); return; }
+    var a = t.dataset && t.dataset.a; if (!a) return;
+    if (a === "mail") { location.href = "mailto:?subject=" + encodeURIComponent("Point après le conseil de positionnement") + "&body=" + encodeURIComponent($("#msg").value); }
+    if (a === "fait") { store.fait = store.fait || {}; store.fait[t.dataset.id] = jour(0); save(); toast("Tâche terminée."); fermer(); }
+    if (a === "chercher") { fermer(); $("#pa").value = t.dataset.id; var ap2 = apById(t.dataset.id); $("#pf").value = ap2.groupe.indexOf("NDRC") === 0 ? "commercial" : "vente"; document.querySelector('.tabs button[data-v="prospect"]').click(); chercher(); }
+    if (a === "note") { var v = $("#note").value.trim(); if (!v) return; var e = ent(BASE.concat(store.ajout).filter(function (x) { return x.id === ouverte; })[0]); var n = e.notes.slice(); n.push([jour(0), v]); maj(ouverte, "notes", n); fiche(ouverte); toast("Note ajoutée."); }
+    if (a === "offre") { var e2 = BASE.concat(store.ajout).map(ent).filter(function (x) { return x.id === ouverte; })[0];
+      location.href = "mailto:?subject=" + encodeURIComponent("Stephenson Formation · alternants BTS MCO / NDRC") + "&body=" + encodeURIComponent("Bonjour,\n\nStephenson Formation (CFA, Paris 18e) forme en alternance des BTS MCO et NDRC. Nous accompagnons chaque apprenti et son tuteur tout au long du contrat, avec un retour après chaque conseil de positionnement.\n\nSeriez-vous ouvert(e) à accueillir un(e) alternant(e) à la rentrée, ou à échanger sur nos formations pour vos salariés ?\n\nBien cordialement,\n\nStephenson Formation · relations entreprises\n48 rue Stephenson, 75018 Paris"); }
+  });
+  document.addEventListener("change", function (ev) {
+    var f = ev.target.dataset && ev.target.dataset.f; if (!f || !ouverte) return;
+    maj(ouverte, f, ev.target.type === "checkbox" ? ev.target.checked : ev.target.value); toast("Enregistré.");
+  });
+  $("#vue").addEventListener("change", function () { vue = this.value; render(); });
+  $("#qa").addEventListener("input", render); $("#fa").addEventListener("change", render);
+  $("#go").addEventListener("click", chercher);
+  $("#reset").addEventListener("click", function () { store = { ajout: [] }; save(); trouves = []; $("#pres").innerHTML = ""; render(); toast("Démo réinitialisée."); });
+  $("#export").addEventListener("click", function () {
+    var l = [["Entreprise", "Ville", "Secteur", "Étape", "Apprentis", "Tuteur", "Formation continue", "Prochaine action", "Date"]];
+    BASE.concat(store.ajout).map(ent).forEach(function (e) { l.push([e.nom, e.ville, e.secteur, NOM_ETAPE[e.etape], e.apps.map(function (i) { var a = apById(i); return a ? a.nom : ""; }).join(", "), e.tuteur, e.fc ? "oui" : "", e.nextTxt, e.nextDate]); });
+    var csv = "﻿" + l.map(function (r) { return r.map(function (c) { return '"' + String(c == null ? "" : c).replace(/"/g, '""') + '"'; }).join(";"); }).join("\n");
+    var d = document.createElement("a"); d.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); d.download = "crm-stephenson.csv"; document.body.appendChild(d); d.click(); d.remove();
+  });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && $("#drawer").classList.contains("on")) fermer(); });
+  Object.keys(STATUTS).forEach(function (k) { var o = document.createElement("option"); o.value = k; o.textContent = STATUTS[k][1]; $("#fa").appendChild(o); });
+  APP.forEach(function (a) { var o = document.createElement("option"); o.value = a.id; o.textContent = "Pour " + a.nom + " (" + a.groupe + ")"; $("#pa").appendChild(o); });
+  render();
+  // une première recherche discrète pour la tâche « Kit » du jour
+  fetch("/api/entreprises?site=stephenson&metier=vente&rayon=1").then(function (x) { return x.json(); }).then(function (j) { if (!trouves.length) { trouves = (j.entreprises || []).map(function (x) { x.filiere = "vente"; return x; }); render(); } }).catch(function () {});
+})();
+</script>
+</body>
+</html>
